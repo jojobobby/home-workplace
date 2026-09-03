@@ -6,20 +6,33 @@ public static class ChatEndpoints
     {
         app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
-        app.MapPost("/messages", (PostMessageRequest request, ChatStore store, ChatOptions options)
-            => PostMessage(ChatStore.GlobalRoomId, request, store, options));
+        app.MapPost("/messages",
+            (PostMessageRequest request, long? since, ChatStore store, ChatOptions options)
+                => PostMessage(ChatStore.GlobalRoomId, request, since, store, options));
 
-        app.MapPost("/rooms/{roomId}/messages", (string roomId, PostMessageRequest request, ChatStore store, ChatOptions options)
-            => PostMessage(roomId, request, store, options));
+        app.MapPost("/rooms/{roomId}/messages",
+            (string roomId, PostMessageRequest request, long? since, ChatStore store, ChatOptions options)
+                => PostMessage(roomId, request, since, store, options));
 
-        app.MapGet("/rooms/{roomId}/messages", (string roomId, ChatStore store, ChatOptions options)
-            => ReadRoom(roomId, since: 0, limit: options.DefaultLimit, store));
+        app.MapGet("/rooms/{roomId}/messages",
+            (string roomId, long? since, int? limit, ChatStore store, ChatOptions options)
+                => ReadRoom(roomId, since ?? 0, ClampLimit(limit, options), store));
 
         return app;
     }
 
+    internal static int ClampLimit(int? limit, ChatOptions options)
+        => limit is null or <= 0
+            ? options.DefaultLimit
+            : Math.Min(limit.Value, options.MaxLimit);
+
+    internal static TimeSpan ClampWait(int? wait, ChatOptions options)
+        => wait is null or <= 0
+            ? TimeSpan.Zero
+            : TimeSpan.FromSeconds(Math.Min(wait.Value, options.MaxWaitSeconds));
+
     private static IResult PostMessage(
-        string roomId, PostMessageRequest request, ChatStore store, ChatOptions options)
+        string roomId, PostMessageRequest request, long? since, ChatStore store, ChatOptions options)
     {
         var posted = store.Post(
             roomId, request.Id!.Trim(), request.Name, request.Goal, request.Content!);
@@ -31,16 +44,16 @@ public static class ChatEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var snapshot = store.Read(roomId, since: posted.Seq, limit: options.DefaultLimit);
+        var snapshot = store.Read(roomId, since ?? posted.Seq, options.DefaultLimit);
 
         return Results.Created($"/rooms/{roomId}/messages/{posted.Seq}", new PostMessageResponse
         {
             Room = roomId,
             Posted = posted,
             Cursor = snapshot.Cursor,
-            Messages = Array.Empty<ChatMessage>(),
+            Messages = since is null ? Array.Empty<ChatMessage>() : snapshot.Messages,
             Agents = snapshot.Agents,
-            Truncated = false,
+            Truncated = since is not null && snapshot.Truncated,
         });
     }
 
