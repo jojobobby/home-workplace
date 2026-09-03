@@ -1,0 +1,10 @@
+{
+  "id": "rex-reviewer",
+  "name": "Rex",
+  "role": "Code reviewer",
+  "vendor": "codex",
+  "model": "gpt-5-codex",
+  "codexSandbox": "read-only",
+  "schedule": { "wake": "09:00", "sleep": "20:00" },
+  "maxRunMinutes": 20
+}

@@ -1,0 +1,11 @@
+{
+  "id": "ada-coder",
+  "name": "Ada",
+  "role": "Software engineer",
+  "vendor": "claude",
+  "model": "claude-haiku-4-5-20251001",
+  "effort": "low",
+  "claudeAllowedTools": ["Bash(curl *)", "Bash(dotnet *)", "Read", "Edit", "Write", "Glob", "Grep"],
+  "schedule": { "wake": "09:00", "sleep": "20:00" },
+  "maxRunMinutes": 30
+}
