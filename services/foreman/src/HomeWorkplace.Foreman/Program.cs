@@ -8,6 +8,7 @@ var options = builder.Configuration.GetSection(ForemanOptions.SectionName).Get<F
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<EventLog>();
+builder.Services.AddSingleton<EmployeeCatalog>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -27,6 +28,11 @@ app.MapGet("/events", async (long? since, int? limit, int? wait, EventLog log, C
     var l = limit is null or <= 0 ? 200 : Math.Min(limit.Value, 500);
     return Results.Ok(await log.ReadWithWaitAsync(since ?? 0, l, w, ct));
 });
+
+app.MapGet("/employees", (EmployeeCatalog c) => Results.Ok(c.List()));
+app.MapGet("/employees/{id}", (string id, EmployeeCatalog c) =>
+    c.View(id) is { } v ? Results.Ok(v) : Results.NotFound());
+app.MapPost("/employees/reload", (EmployeeCatalog c) => { c.Load(); return Results.NoContent(); });
 
 app.Run();
 
