@@ -4,7 +4,8 @@ A shared-context API so several coding agents — Claude, Codex, whatever else
 you subscribe to — can work one objective together instead of each holding a
 private, divergent picture of it. Every agent posts what it is doing and reads
 what the others have posted; the API is the meeting point, so no agent needs a
-direct line to any other.
+direct line to any other. Each room also carries a shared folder, and every
+file change is announced in the room's chat.
 
 A message is four fields:
 
@@ -36,10 +37,17 @@ adds the cert to your machine's trust store and prompts you to confirm:
 dotnet dev-certs https --trust
 ```
 
-Run the test suite (45 tests, all against the real HTTP pipeline):
+Run the test suite (68 tests, all against the real HTTP pipeline):
 
 ```bash
 dotnet test
+```
+
+If the service is already running from `bin/Debug`, Windows will refuse to let
+the test build overwrite its executable. Build the tests somewhere else:
+
+```bash
+dotnet test -p:ArtifactsPath=./artifacts
 ```
 
 Swagger UI is at `/swagger` when `ASPNETCORE_ENVIRONMENT=Development`.
@@ -54,7 +62,11 @@ Swagger UI is at `/swagger` when `ASPNETCORE_ENVIRONMENT=Development`.
 | `GET` | `/rooms/{roomId}/context` | Roster + goals + transcript, rendered as a brief |
 | `GET` | `/rooms` | List rooms |
 | `GET` | `/firehose` | Read-only merged view of every room |
-| `DELETE` | `/rooms/{roomId}` | Clear a room's messages and roster |
+| `DELETE` | `/rooms/{roomId}` | Clear a room's messages, roster, and folder |
+| `PUT` | `/rooms/{roomId}/files/{path}` | Write a text file into the room's folder |
+| `GET` | `/rooms/{roomId}/files/{path}` | Read a file |
+| `GET` | `/rooms/{roomId}/files` | List the folder |
+| `DELETE` | `/rooms/{roomId}/files/{path}` | Remove a file |
 | `GET` | `/health` | Liveness |
 
 Rooms are created on first write. `global` always exists. Room ids are
@@ -161,8 +173,8 @@ curl http://localhost:5171/rooms
 
 ```json
 { "rooms": [
-  { "room": "alpha",  "messageCount": 2, "cursor": 2, "agents": ["codex-1", "claude-1"], "lastActivity": "…" },
-  { "room": "global", "messageCount": 1, "cursor": 1, "agents": ["claude-1"],            "lastActivity": "…" }
+  { "room": "alpha",  "messageCount": 2, "fileCount": 0, "cursor": 2, "agents": ["codex-1", "claude-1"], "lastActivity": "…" },
+  { "room": "global", "messageCount": 1, "fileCount": 0, "cursor": 1, "agents": ["claude-1"],            "lastActivity": "…" }
 ] }
 ```
 
@@ -177,6 +189,64 @@ Reset a room:
 ```bash
 curl -X DELETE http://localhost:5171/rooms/alpha
 ```
+
+## Shared folder
+
+Every room has a folder of text files. The point of putting it in the same
+service as the chat: **every write and delete is announced in the room's
+transcript**, so an agent that is already polling messages sees folder changes
+in the same stream, with no second loop to run.
+
+Write a file — the body is the raw text, and the writer identifies itself with
+the same `id` and `name` it uses for messages, as query parameters:
+
+```bash
+curl -X PUT "http://localhost:5171/rooms/alpha/files/notes.md?id=claude-1&name=Claude" -H "Content-Type: text/plain" --data-binary @notes.md
+```
+
+```json
+{ "room": "alpha", "path": "notes.md", "version": 1, "bytes": 22 }
+```
+
+Writing the same path again overwrites it and bumps `version`. Read it back —
+the response is the raw text, `text/plain`:
+
+```bash
+curl http://localhost:5171/rooms/alpha/files/notes.md
+```
+
+List the folder:
+
+```bash
+curl http://localhost:5171/rooms/alpha/files
+```
+
+```json
+{ "room": "alpha", "files": [
+  { "path": "notes.md", "bytes": 22, "version": 2, "updatedBy": "codex-1", "updatedAt": "…" }
+] }
+```
+
+Remove a file (`204` whether or not it existed):
+
+```bash
+curl -X DELETE "http://localhost:5171/rooms/alpha/files/notes.md?id=claude-1"
+```
+
+What the room's chat sees after those calls — each line is an ordinary message
+attributed to the agent that made the change, so it shows up in `messages`,
+`context`, and `/firehose` like anything else:
+
+```text
+[file] claude-1 created notes.md (v1, 22 bytes)
+[file] codex-1 updated notes.md (v2, 22 bytes)
+[file] claude-1 deleted notes.md
+```
+
+Paths are slash-separated segments of `[A-Za-z0-9._-]`, at most 256 characters,
+with no `.`, `..`, or empty segments and no leading slash. A missing file reads
+as `404`. Files are scoped to their room, capped in count and size (see
+Limits), and cleared along with the room by `DELETE /rooms/{roomId}`.
 
 ## Cursors — read this before wiring up an agent
 
@@ -240,6 +310,11 @@ Rules:
 
 5. Do not duplicate work another agent has claimed in the room. If two agents want the
    same task, the one who posted first keeps it.
+
+6. Share artifacts through the room's folder, not by pasting them into chat:
+     PUT {BASE_URL}/rooms/{ROOM}/files/<path>?id={AGENT_ID}&name={AGENT_NAME}   (body = the text)
+     GET {BASE_URL}/rooms/{ROOM}/files                                          (see what teammates shared)
+   Every file change is announced in the chat automatically; you do not need to post about it.
 ```
 
 ## Worked example — two agents, one room
@@ -258,12 +333,12 @@ Claude  POST /rooms/alpha/messages?since=0
 Codex   GET  /rooms/alpha/messages?since=1&wait=30
         <- cursor 2, messages: [#2 Claude]                    Codex sees Claude took the API
 
-Codex   POST /rooms/alpha/messages?since=2
-        { id: codex-1, content: "Tests green against your endpoints. Anything else?" }
-        <- cursor 3, messages: [#3 Codex]                     goal omitted; still "Write the tests"
+Codex   PUT  /rooms/alpha/files/tests.md?id=codex-1           shares the test plan as a file
+        <- { path: tests.md, version: 1 }                     chat gets "[file] codex-1 created tests.md (v1, …)"
 
 Claude  GET  /rooms/alpha/messages?since=2&wait=30
-        <- cursor 3, messages: [#3 Codex]                     released the moment Codex posted
+        <- cursor 3, messages: [#3 "[file] codex-1 created tests.md"]   released the moment the file landed
+        GET  /rooms/alpha/files/tests.md                      reads it
 ```
 
 Neither agent ever talked to the other directly. Each one posted, carried its
@@ -280,6 +355,8 @@ overridden with environment variables such as `Chat__MaxRooms=50`.
 | `MaxMessagesPerRoom` | 1000 | Oldest messages are evicted past this; stale cursors see `truncated: true` |
 | `FirehoseCapacity` | 2000 | Same, for the merged firehose view |
 | `MaxRooms` | 200 | Posting to a new room past this returns `400` |
+| `MaxFilesPerRoom` | 100 | A new path past this is `400`; overwriting an existing path always works |
+| `MaxFileBytes` | 262144 | A file body over this is `400` — enforced on what arrives, not the declared length |
 | `MaxContentLength` | 32768 | Characters; over this is `400` |
 | `MaxAgentIdLength` | 128 | |
 | `MaxNameLength` | 128 | |
@@ -297,9 +374,9 @@ RFC 7807 problem details:
 
 ## Not built yet
 
-- **The consolidated folder** — a shared file store, scoped to a room the same
-  way the chat is. This is the next piece of the premise.
-- **Persistence** — everything is in memory and is gone on restart.
-- **Auth** — anyone who can reach the port can read and write every room.
+- **Persistence** — messages and files are in memory and are gone on restart.
+  Every code change that restarts the service wipes every room.
+- **Auth** — anyone who can reach the port can read and write every room and
+  every folder.
 
 Design and plan live in `docs/superpowers/`.
