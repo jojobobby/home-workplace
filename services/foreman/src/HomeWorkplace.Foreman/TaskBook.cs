@@ -292,6 +292,21 @@ public sealed class TaskBook
             _employees.Free(employeeId);
     }
 
+    /// <summary>The employee's in-progress task whose session was opened today, if any.</summary>
+    public TaskModel? ActiveToday(string employeeId, DateOnly today)
+        => _tasks.Values.FirstOrDefault(t =>
+            t.Assignee == employeeId && t.Session is { } s && s.Day == today &&
+            t.Status is not (TaskState.Done or TaskState.Failed or TaskState.Cancelled));
+
+    /// <summary>Append a day's progress bullets and drop the session (the employee forgets the day).</summary>
+    public void WriteProgressAndClearSession(string taskId, ProgressEntry entry)
+    {
+        if (Get(taskId) is not { } t) return;
+        t.Progress.Add(entry);
+        t.Session = null;
+        Save(t);
+    }
+
     /// <summary>Load tasks from disk at startup (used by restart recovery in a later task).</summary>
     public void SeedFrom(IEnumerable<TaskModel> tasks)
     {

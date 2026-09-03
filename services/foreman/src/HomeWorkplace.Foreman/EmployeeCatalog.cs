@@ -109,6 +109,18 @@ public sealed class EmployeeCatalog
     public void Wake(string id, DateTimeOffset? until)
         => SetState(GetState(id) with { Status = EmployeeStatus.Awake, AwakeOverrideUntil = until });
 
+    public void Sleep(string id)
+        => SetState(GetState(id) with { Status = EmployeeStatus.Asleep, CurrentTaskId = null, AwakeOverrideUntil = null });
+
+    /// <summary>Force a memory reset: stay awake, drop the override; the caller wraps up first.</summary>
+    public void Reset(string id)
+        => SetState(GetState(id) with { Status = EmployeeStatus.Awake, AwakeOverrideUntil = null });
+
+    /// <summary>True when <paramref name="now"/> falls in the shift, handling shifts that wrap past midnight.</summary>
+    public static bool WithinShift(TimeOnly now, TimeOnly wake, TimeOnly sleep)
+        => wake <= sleep ? now >= wake && now < sleep
+                         : now >= wake || now < sleep;
+
     public IReadOnlyList<EmployeeView> List()
         => _defs.Values
             .OrderBy(d => d.Id, StringComparer.Ordinal)

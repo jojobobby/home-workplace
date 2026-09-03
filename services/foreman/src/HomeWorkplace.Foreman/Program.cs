@@ -15,6 +15,7 @@ builder.Services.AddSingleton<TaskBook>();
 builder.Services.AddSingleton<PersonaComposer>();
 builder.Services.AddSingleton<IAgentProvider, NotConfiguredProvider>();
 builder.Services.AddSingleton<RunSupervisor>();
+builder.Services.AddHostedService<DayCycle>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -39,11 +40,31 @@ app.MapGet("/employees", (EmployeeCatalog c) => Results.Ok(c.List()));
 app.MapGet("/employees/{id}", (string id, EmployeeCatalog c) =>
     c.View(id) is { } v ? Results.Ok(v) : Results.NotFound());
 app.MapPost("/employees/reload", (EmployeeCatalog c) => { c.Load(); return Results.NoContent(); });
-app.MapPost("/employees/{id}/wake", (string id, EmployeeCatalog cat, RunSupervisor sup) =>
+app.MapPost("/employees/{id}/wake", (string id, string? until, EmployeeCatalog cat, RunSupervisor sup, TimeProvider clock) =>
 {
     if (cat.Find(id) is null) return Results.NotFound();
-    cat.Wake(id, until: null);
+    DateTimeOffset? overrideUntil = null;
+    if (!string.IsNullOrWhiteSpace(until) && TimeOnly.TryParse(until, out var t))
+    {
+        var now = clock.GetLocalNow();
+        overrideUntil = new DateTimeOffset(now.Date + t.ToTimeSpan(), now.Offset);
+    }
+    cat.Wake(id, overrideUntil);
     sup.Pump();
+    return Results.NoContent();
+});
+app.MapPost("/employees/{id}/reset", async (string id, EmployeeCatalog cat, RunSupervisor sup, CancellationToken ct) =>
+{
+    if (cat.Find(id) is null) return Results.NotFound();
+    await sup.WrapUpAsync(id, ct);
+    cat.Reset(id);
+    return Results.NoContent();
+});
+app.MapPost("/employees/{id}/sleep", async (string id, EmployeeCatalog cat, RunSupervisor sup, CancellationToken ct) =>
+{
+    if (cat.Find(id) is null) return Results.NotFound();
+    await sup.WrapUpAsync(id, ct);
+    cat.Sleep(id);
     return Results.NoContent();
 });
 

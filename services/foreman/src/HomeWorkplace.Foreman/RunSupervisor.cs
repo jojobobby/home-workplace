@@ -37,6 +37,31 @@ public sealed class RunSupervisor
         lock (_gate) return _busy.Contains(employeeId);
     }
 
+    /// <summary>End-of-day wrap-up: summarize the employee's active task into progress bullets, then drop the session.</summary>
+    public async Task WrapUpAsync(string employeeId, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(_clock.GetLocalNow().Date);
+        if (_tasks.ActiveToday(employeeId, today) is not { } task) return;
+        var def = _employees.Find(employeeId);
+        if (def is null) return;
+        var provider = _providers.First(p => p.Handles(def.Vendor));
+        var spec = new RunSpec
+        {
+            RunId = Guid.NewGuid().ToString("N")[..8],
+            Employee = def,
+            TaskId = task.Id,
+            Workspace = task.Workspace,
+            SystemPrompt = _composer.BuildSystemPrompt(def, task),
+            Prompt = _composer.BuildWrapUpPrompt(task),
+            Mode = SessionMode.Resume,
+            SessionId = task.Session!.SessionId,
+            Timeout = TimeSpan.FromMinutes(def.MaxRunMinutes ?? _options.MaxRunMinutes),
+        };
+        var result = await provider.WrapUpAsync(spec, ct);
+        _tasks.WriteProgressAndClearSession(task.Id, new ProgressEntry(employeeId, today, result.Done, result.Next));
+        _events.Emit("wrapup.written", employeeId, task.Id, data: new { result.Done, result.Next });
+    }
+
     public void Pump()
     {
         lock (_gate)
