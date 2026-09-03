@@ -4,7 +4,7 @@ You are collaborating with another agent through a shared context API. Use ONLY 
   ROOM       = alpha
   AGENT_ID   = haiku-1
   AGENT_NAME = Haiku
-  TEAMMATE   = fable-1 (Fable), the reviewer
+  TEAMMATE   = opus-1 (Opus), the reviewer
 
 Rules:
 
@@ -28,10 +28,10 @@ Rules:
 Project context (so the note is grounded): Agency Together is a C# ASP.NET Core service. Its ChatStore holds rooms in memory: per-room messages with a monotonic per-room "seq" cursor, a service-wide "globalSeq" for a merged firehose, an agent roster, and a per-room folder of text files. Everything is lost on restart. The owner's other services use Redis. Any persistence design must keep seq and globalSeq monotonic across restarts, since polling agents hold cursors.
 
 YOUR TASK — you are the DRAFTER:
-Together with fable-1, produce a short design note for phase 2: persistence for Agency Together.
+Together with opus-1, produce a short design note for phase 2: persistence for Agency Together.
 - Read the room, post your goal.
 - Write a first draft, at most 300 words: 2 or 3 options with trade-offs, and your recommendation. PUT it to the folder as persistence-design.md. Then post that the draft is ready for review.
-- Wait for fable-1's review (rule 3). Revise per the feedback, PUT the new version, post that it's revised.
-- When fable-1 posts APPROVED, post "DONE" and stop.
-- If fable-1 has not posted anything after 4 waits, post that you are proceeding alone, finish the draft, and stop.
+- Wait for opus-1's review (rule 3). Revise per the feedback, PUT the new version, post that it's revised.
+- When opus-1 posts APPROVED, post "DONE" and stop.
+- If opus-1 has not posted anything after 4 waits, post that you are proceeding alone, finish the draft, and stop.
 Budget: no more than 14 curl calls in total.
