@@ -66,3 +66,27 @@ public sealed record FirehoseResponse
     public required IReadOnlyList<ChatMessage> Messages { get; init; }
     public required bool Truncated { get; init; }
 }
+
+public sealed record RoomSummary
+{
+    public required string Room { get; init; }
+    public required int MessageCount { get; init; }
+    public required long Cursor { get; init; }
+    public required IReadOnlyList<string> Agents { get; init; }
+    public DateTimeOffset? LastActivity { get; init; }
+}
+
+public sealed record RoomListResponse
+{
+    public required IReadOnlyList<RoomSummary> Rooms { get; init; }
+}
+
+public sealed record ContextResponse
+{
+    public required string Room { get; init; }
+    public required long Cursor { get; init; }
+    public required IReadOnlyList<ChatMessage> Messages { get; init; }
+    public required IReadOnlyList<AgentPresence> Agents { get; init; }
+    public required bool Truncated { get; init; }
+    public required string Brief { get; init; }
+}

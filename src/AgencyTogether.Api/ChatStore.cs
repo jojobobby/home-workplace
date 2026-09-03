@@ -112,6 +112,33 @@ public sealed class ChatStore
         }
     }
 
+    public IReadOnlyList<RoomSummary> ListRooms()
+    {
+        lock (_globalGate)
+        {
+            return _rooms.Values
+                .Select(r => r.Summarize())
+                .OrderBy(r => r.Room, StringComparer.Ordinal)
+                .ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Clears a room's messages and roster. The room's seq counter is deliberately
+    /// left alone so cursors held by polling agents stay valid. The global room is
+    /// cleared but never removed.
+    /// </summary>
+    public void ClearRoom(string roomId)
+    {
+        lock (_globalGate)
+        {
+            if (_rooms.TryGetValue(roomId, out var room))
+            {
+                room.Clear();
+            }
+        }
+    }
+
     public FirehoseSnapshot ReadFirehose(long since, int limit)
     {
         lock (_globalGate)

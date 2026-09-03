@@ -40,6 +40,52 @@ public static partial class ChatEndpoints
                 });
             });
 
+        app.MapGet("/rooms", (ChatStore store)
+            => Results.Ok(new RoomListResponse { Rooms = store.ListRooms() }));
+
+        app.MapGet("/rooms/{roomId}/context",
+            async (string roomId, long? since, int? limit, int? wait, string? format,
+                   ChatStore store, ChatOptions options, CancellationToken cancellationToken) =>
+            {
+                if (!TryNormalizeRoomId(roomId, out var normalizedRoom))
+                {
+                    return InvalidRoomId();
+                }
+
+                var snapshot = await store.ReadWithWaitAsync(
+                    normalizedRoom, since ?? 0, ClampLimit(limit, options),
+                    ClampWait(wait, options), cancellationToken);
+
+                var brief = ContextFormatter.Render(
+                    normalizedRoom, snapshot.Cursor, snapshot.Agents, snapshot.Messages);
+
+                if (string.Equals(format, "text", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Results.Text(brief, "text/plain");
+                }
+
+                return Results.Ok(new ContextResponse
+                {
+                    Room = normalizedRoom,
+                    Cursor = snapshot.Cursor,
+                    Messages = snapshot.Messages,
+                    Agents = snapshot.Agents,
+                    Truncated = snapshot.Truncated,
+                    Brief = brief,
+                });
+            });
+
+        app.MapDelete("/rooms/{roomId}", (string roomId, ChatStore store) =>
+        {
+            if (!TryNormalizeRoomId(roomId, out var normalizedRoom))
+            {
+                return InvalidRoomId();
+            }
+
+            store.ClearRoom(normalizedRoom);
+            return Results.NoContent();
+        });
+
         return app;
     }
 

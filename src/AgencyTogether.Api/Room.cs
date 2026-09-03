@@ -79,12 +79,38 @@ public sealed class Room
                 .Take(limit)
                 .ToArray();
 
-            var agents = _agents.Values
-                .OrderBy(a => a.FirstSeen)
-                .ThenBy(a => a.AgentId, StringComparer.Ordinal)
-                .ToArray();
+            return new RoomSnapshot(_seq, messages, OrderedAgents(), since + 1 < _firstAvailableSeq);
+        }
+    }
 
-            return new RoomSnapshot(_seq, messages, agents, since + 1 < _firstAvailableSeq);
+    public RoomSummary Summarize()
+    {
+        lock (_gate)
+        {
+            return new RoomSummary
+            {
+                Room = Id,
+                MessageCount = _messages.Count,
+                Cursor = _seq,
+                Agents = OrderedAgents().Select(a => a.AgentId).ToArray(),
+                LastActivity = _messages.Count == 0 ? null : _messages[^1].Timestamp,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Drops every message and the roster. The seq counter is deliberately left alone so
+    /// cursors held by polling agents stay valid; the retention floor moves past the old
+    /// head so those agents are told they have a gap rather than silently missing it.
+    /// </summary>
+    public void Clear()
+    {
+        lock (_gate)
+        {
+            _messages.Clear();
+            _agents.Clear();
+            _firstAvailableSeq = _seq + 1;
+            ReleaseWaiters();
         }
     }
 
@@ -109,6 +135,12 @@ public sealed class Room
             return true;
         }
     }
+
+    private AgentPresence[] OrderedAgents()
+        => _agents.Values
+            .OrderBy(a => a.FirstSeen)
+            .ThenBy(a => a.AgentId, StringComparer.Ordinal)
+            .ToArray();
 
     private void ReleaseWaiters()
     {
