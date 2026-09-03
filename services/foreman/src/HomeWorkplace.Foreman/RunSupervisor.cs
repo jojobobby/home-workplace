@@ -15,6 +15,10 @@ public sealed class RunSupervisor
     private readonly TimeProvider _clock;
     private readonly object _gate = new();
     private readonly HashSet<string> _busy = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _cancelled = new(StringComparer.Ordinal);
+
+    /// <summary>Discard the result of an in-flight run (used by task cancel/reassign).</summary>
+    public void MarkCancelled(string runId) => _cancelled[runId] = 1;
 
     public RunSupervisor(TaskBook tasks, EmployeeCatalog employees, PersonaComposer composer,
         IEnumerable<IAgentProvider> providers, EventLog events, ForemanOptions options, TimeProvider clock)
@@ -72,6 +76,8 @@ public sealed class RunSupervisor
             _events.Emit("run.started", employeeId, taskId, runId);
 
             var result = await provider.RunAsync(spec, CancellationToken.None);
+
+            if (_cancelled.TryRemove(runId, out _)) return;   // task was cancelled/reassigned mid-run
 
             _tasks.ApplyResult(taskId, employeeId, runId, result, _clock.GetUtcNow());
             _events.Emit("run.finished", employeeId, taskId, runId, new { status = result.Status.ToString(), result.Summary });

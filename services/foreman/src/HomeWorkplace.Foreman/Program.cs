@@ -65,6 +65,14 @@ app.MapPost("/tasks/{id}/answer", (string id, AnswerRequest req, TaskBook book, 
     book.Get(id) is null ? Results.NotFound()
     : string.IsNullOrWhiteSpace(req.Text) ? Results.ValidationProblem(new Dictionary<string, string[]> { ["text"] = new[] { "text is required." } })
     : book.Answer(id, req.Text!, sup) ? Results.Ok(book.Get(id)) : Results.Conflict());
+app.MapPost("/tasks/{id}/reassign", (string id, ReassignRequest req, TaskBook book, EmployeeCatalog cat, RunSupervisor sup) =>
+    book.Get(id) is null ? Results.NotFound()
+    : (string.IsNullOrWhiteSpace(req.Assignee) || cat.Find(req.Assignee) is null) ? Results.Problem(detail: $"Unknown employee '{req.Assignee}'.", statusCode: 400)
+    : book.Reassign(id, req.Assignee!, sup) ? Results.Ok(book.Get(id)) : Results.Conflict());
+app.MapPost("/tasks/{id}/retry", (string id, TaskBook book, RunSupervisor sup) =>
+    book.Get(id) is null ? Results.NotFound() : book.Retry(id, sup) ? Results.Ok(book.Get(id)) : Results.Conflict());
+app.MapPost("/tasks/{id}/cancel", (string id, TaskBook book, RunSupervisor sup) =>
+    book.Get(id) is null ? Results.NotFound() : book.Cancel(id, sup) ? Results.Ok(book.Get(id)) : Results.Conflict());
 
 app.Run();
 

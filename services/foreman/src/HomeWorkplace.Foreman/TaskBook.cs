@@ -238,6 +238,60 @@ public sealed class TaskBook
         Save(t);
     }
 
+    private static readonly TaskState[] Terminal = { TaskState.Done, TaskState.Cancelled };
+
+    /// <summary>Move a task to another employee, seeded fresh from the room brief + progress.</summary>
+    public bool Reassign(string id, string newAssignee, RunSupervisor supervisor)
+    {
+        if (Get(id) is not { } t || Terminal.Contains(t.Status)) return false;
+        CancelOpenRun(t, supervisor);
+        if (t.Assignee != newAssignee) FreeIfHolding(t.Assignee, id);
+        t.Assignee = newAssignee;
+        t.Session = null;
+        t.PendingAnswer = null;
+        t.Status = TaskState.Queued;
+        Save(t);
+        _events.Emit("task.reassigned", newAssignee, id);
+        _ = _rooms.PostAsync(t.Room, "foreman", "Foreman", null, $"Reassigned to {newAssignee}.", CancellationToken.None);
+        supervisor.Pump();
+        return true;
+    }
+
+    /// <summary>Re-queue a failed task.</summary>
+    public bool Retry(string id, RunSupervisor supervisor)
+    {
+        if (Get(id) is not { Status: TaskState.Failed } t) return false;
+        t.Status = TaskState.Queued;
+        Save(t);
+        supervisor.Pump();
+        return true;
+    }
+
+    /// <summary>Cancel a non-terminal task, discarding any live run.</summary>
+    public bool Cancel(string id, RunSupervisor supervisor)
+    {
+        if (Get(id) is not { } t || Terminal.Contains(t.Status)) return false;
+        CancelOpenRun(t, supervisor);
+        FreeIfHolding(t.Assignee, id);
+        t.Status = TaskState.Cancelled;
+        Save(t);
+        _events.Emit("task.cancelled", t.Assignee, id);
+        return true;
+    }
+
+    private void CancelOpenRun(TaskModel t, RunSupervisor supervisor)
+    {
+        var open = t.Runs.LastOrDefault(r => r.EndedAt is null);
+        if (open is not null) supervisor.MarkCancelled(open.Id);
+    }
+
+    private void FreeIfHolding(string employeeId, string taskId)
+    {
+        var s = _employees.GetState(employeeId);
+        if (s.CurrentTaskId == taskId || s.Status is EmployeeStatus.Waiting)
+            _employees.Free(employeeId);
+    }
+
     /// <summary>Load tasks from disk at startup (used by restart recovery in a later task).</summary>
     public void SeedFrom(IEnumerable<TaskModel> tasks)
     {
