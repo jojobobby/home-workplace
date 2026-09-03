@@ -11,6 +11,7 @@ public sealed class EventLog
 {
     private readonly ForemanOptions _options;
     private readonly TimeProvider _clock;
+    private readonly FileStore? _store;
     private readonly object _gate = new();
     private readonly Queue<RuntimeEvent> _events = new();
     private readonly List<TaskCompletionSource> _waiters = new();
@@ -18,10 +19,11 @@ public sealed class EventLog
     private long _seq;
     private long _firstAvailableSeq = 1;
 
-    public EventLog(ForemanOptions options, TimeProvider clock)
+    public EventLog(ForemanOptions options, TimeProvider clock, FileStore? store = null)
     {
         _options = options;
         _clock = clock;
+        _store = store;
     }
 
     public void Emit(string type, string? employeeId = null, string? taskId = null, string? runId = null, object? data = null)
@@ -39,12 +41,25 @@ public sealed class EventLog
                 Data = data is null ? null : JsonSerializer.SerializeToElement(data),
             };
             _events.Enqueue(evt);
+            _store?.AppendEvent(evt);
             while (_events.Count > _options.EventsCapacity)
             {
                 _firstAvailableSeq = _events.Dequeue().Seq + 1;
             }
             foreach (var w in _waiters) w.TrySetResult();
             _waiters.Clear();
+        }
+    }
+
+    /// <summary>Replay persisted events at startup so the cursor continues above them.</summary>
+    public void Seed(IReadOnlyList<RuntimeEvent> events)
+    {
+        lock (_gate)
+        {
+            foreach (var e in events) _events.Enqueue(e);
+            if (events.Count > 0) _seq = events.Max(e => e.Seq);
+            while (_events.Count > _options.EventsCapacity)
+                _firstAvailableSeq = _events.Dequeue().Seq + 1;
         }
     }
 

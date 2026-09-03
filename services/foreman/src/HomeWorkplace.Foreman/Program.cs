@@ -16,10 +16,13 @@ builder.Services.AddSingleton<PersonaComposer>();
 builder.Services.AddSingleton<IAgentProvider, NotConfiguredProvider>();
 builder.Services.AddSingleton<RunSupervisor>();
 builder.Services.AddHostedService<DayCycle>();
+builder.Services.AddSingleton<StateRecovery>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.Services.GetRequiredService<StateRecovery>().Recover();
 
 if (app.Environment.IsDevelopment())
 {
