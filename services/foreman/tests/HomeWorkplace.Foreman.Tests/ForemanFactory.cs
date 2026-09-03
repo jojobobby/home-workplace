@@ -27,6 +27,7 @@ public sealed class ForemanFactory : WebApplicationFactory<Program>
     }
 
     public FakeContextApi ContextApi { get; } = new();
+    public FakeAgentProvider Provider { get; } = new();
 
     public static ForemanFactory Create(out string dataPath)
     {
@@ -45,6 +46,8 @@ public sealed class ForemanFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<IContextApiClient>();
             services.AddSingleton<IContextApiClient>(ContextApi);
+            services.RemoveAll<IAgentProvider>();
+            services.AddSingleton<IAgentProvider>(Provider);
         });
     }
 

@@ -119,3 +119,34 @@ public sealed class TaskModel
 public sealed record CreateTaskRequest(string? Title, string? Brief, string? Assignee, bool RequiresApproval = false);
 public sealed record AnswerRequest(string? Text);
 public sealed record ReassignRequest(string? Assignee);
+
+public enum RunOutcome { Done, Handoff, NeedsHuman, Failed }
+
+public enum SessionMode { New, Resume }
+
+public sealed record RunSpec
+{
+    public required string RunId { get; init; }
+    public required EmployeeDefinition Employee { get; init; }
+    public required string TaskId { get; init; }
+    public required string Workspace { get; init; }
+    public required string SystemPrompt { get; init; }
+    public required string Prompt { get; init; }
+    public required SessionMode Mode { get; init; }
+    public string? SessionId { get; init; }
+    public required TimeSpan Timeout { get; init; }
+}
+
+public sealed record RunResult
+{
+    public required string RunId { get; init; }
+    public required RunOutcome Status { get; init; }
+    public required string Summary { get; init; }
+    public HandoffAsk? Ask { get; init; }
+    public IReadOnlyList<string> Artifacts { get; init; } = Array.Empty<string>();
+    public required string SessionId { get; init; }
+    public required Usage Usage { get; init; }
+    public string RawTail { get; init; } = "";
+}
+
+public sealed record WrapUpResult(IReadOnlyList<string> Done, IReadOnlyList<string> Next, string SessionId);

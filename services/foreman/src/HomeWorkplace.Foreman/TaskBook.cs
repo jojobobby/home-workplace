@@ -14,15 +14,17 @@ public sealed class TaskBook
     private readonly EventLog _events;
     private readonly IContextApiClient _rooms;
     private readonly FileStore _store;
+    private readonly EmployeeCatalog _employees;
     private readonly ConcurrentDictionary<string, TaskModel> _tasks = new(StringComparer.Ordinal);
 
-    public TaskBook(ForemanOptions options, TimeProvider clock, EventLog events, IContextApiClient rooms, FileStore store)
+    public TaskBook(ForemanOptions options, TimeProvider clock, EventLog events, IContextApiClient rooms, FileStore store, EmployeeCatalog employees)
     {
         _options = options;
         _clock = clock;
         _events = events;
         _rooms = rooms;
         _store = store;
+        _employees = employees;
     }
 
     public async Task<TaskModel> CreateAsync(CreateTaskRequest req, CancellationToken ct)
@@ -69,6 +71,69 @@ public sealed class TaskBook
         _tasks[task.Id] = task;
         _store.SaveTask(task);
         _events.Emit("task.state", taskId: task.Id, data: new { task.Status, task.Assignee });
+    }
+
+    /// <summary>Mark a task running and open a run record. Posts to the task room.</summary>
+    public void MarkRunning(string taskId, string runId, string employeeId, DateTimeOffset now)
+    {
+        var t = _tasks[taskId];
+        t.Status = TaskState.Running;
+        t.Runs.Add(new RunRecord { Id = runId, Employee = employeeId, StartedAt = now });
+        Save(t);
+        _ = _rooms.PostAsync(t.Room, "foreman", "Foreman", null, $"Run started by {employeeId}.", CancellationToken.None);
+    }
+
+    /// <summary>Apply a finished run to the task and settle the employee. Handoff arrives in Task 8.</summary>
+    public void ApplyResult(string taskId, string employeeId, string runId, RunResult result, DateTimeOffset now)
+    {
+        var t = _tasks[taskId];
+        var run = t.Runs.FirstOrDefault(r => r.Id == runId);
+        if (run is not null)
+        {
+            run.EndedAt = now;
+            run.Status = result.Status.ToString();
+            run.Usage = result.Usage;
+            run.ResultSummary = result.Summary;
+        }
+        t.Session = new SessionRef(t.Assignee, result.SessionId, DateOnly.FromDateTime(now.UtcDateTime));
+        t.PendingAnswer = null;
+
+        switch (result.Status)
+        {
+            case RunOutcome.Done:
+                if (t.RequiresApproval) { t.Status = TaskState.NeedsHuman; t.AwaitingApproval = true; }
+                else t.Status = TaskState.Done;
+                _employees.Free(employeeId);
+                break;
+            case RunOutcome.NeedsHuman:
+                t.Status = TaskState.NeedsHuman;
+                t.AwaitingApproval = false;
+                t.PendingQuestion = result.Summary;
+                _employees.Free(employeeId);
+                _events.Emit("human.needed", employeeId, taskId, runId);
+                break;
+            case RunOutcome.Failed:
+                t.Status = TaskState.Failed;
+                _employees.Free(employeeId);
+                break;
+            case RunOutcome.Handoff:
+                throw new NotSupportedException("handoff arrives in Task 8");
+        }
+
+        Save(t);
+        _ = _rooms.PostAsync(t.Room, "foreman", "Foreman", null,
+            $"Run finished ({result.Status}): {result.Summary}", CancellationToken.None);
+    }
+
+    /// <summary>An exception escaped the run: close it failed and free the employee.</summary>
+    public void FailRun(string taskId, string runId, string error, DateTimeOffset now)
+    {
+        var t = _tasks[taskId];
+        var run = t.Runs.FirstOrDefault(r => r.Id == runId);
+        if (run is not null) { run.EndedAt = now; run.Status = "Failed"; run.ResultSummary = error; }
+        t.Status = TaskState.Failed;
+        _employees.Free(t.Assignee);
+        Save(t);
     }
 
     /// <summary>Load tasks from disk at startup (used by restart recovery in a later task).</summary>

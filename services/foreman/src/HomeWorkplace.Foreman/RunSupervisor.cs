@@ -1,0 +1,90 @@
+namespace HomeWorkplace.Foreman;
+
+/// <summary>
+/// Drives runs: at most one live run per employee. Pump() starts eligible queued tasks;
+/// each run applies its result to the task, frees or parks the employee, then pumps again.
+/// </summary>
+public sealed class RunSupervisor
+{
+    private readonly TaskBook _tasks;
+    private readonly EmployeeCatalog _employees;
+    private readonly PersonaComposer _composer;
+    private readonly IEnumerable<IAgentProvider> _providers;
+    private readonly EventLog _events;
+    private readonly ForemanOptions _options;
+    private readonly TimeProvider _clock;
+    private readonly object _gate = new();
+    private readonly HashSet<string> _busy = new(StringComparer.Ordinal);
+
+    public RunSupervisor(TaskBook tasks, EmployeeCatalog employees, PersonaComposer composer,
+        IEnumerable<IAgentProvider> providers, EventLog events, ForemanOptions options, TimeProvider clock)
+    {
+        _tasks = tasks;
+        _employees = employees;
+        _composer = composer;
+        _providers = providers;
+        _events = events;
+        _options = options;
+        _clock = clock;
+    }
+
+    public bool IsBusy(string employeeId)
+    {
+        lock (_gate) return _busy.Contains(employeeId);
+    }
+
+    public void Pump()
+    {
+        lock (_gate)
+        {
+            foreach (var task in _tasks.Queued())
+            {
+                if (_busy.Contains(task.Assignee)) continue;
+                if (_employees.GetState(task.Assignee).Status != EmployeeStatus.Awake) continue;
+                _busy.Add(task.Assignee);
+                _employees.MarkWorking(task.Assignee, task.Id);
+                _ = RunAsync(task.Id, task.Assignee);
+            }
+        }
+    }
+
+    private async Task RunAsync(string taskId, string employeeId)
+    {
+        var runId = Guid.NewGuid().ToString("N")[..8];
+        try
+        {
+            var def = _employees.Find(employeeId)!;
+            var task = _tasks.Get(taskId)!;
+            var provider = _providers.First(p => p.Handles(def.Vendor));
+            var spec = new RunSpec
+            {
+                RunId = runId,
+                Employee = def,
+                TaskId = taskId,
+                Workspace = task.Workspace,
+                SystemPrompt = _composer.BuildSystemPrompt(def, task),
+                Prompt = await _composer.BuildRunPromptAsync(def, task, CancellationToken.None),
+                Mode = task.Session is null ? SessionMode.New : SessionMode.Resume,
+                SessionId = task.Session?.SessionId,
+                Timeout = TimeSpan.FromMinutes(def.MaxRunMinutes ?? _options.MaxRunMinutes),
+            };
+            _tasks.MarkRunning(taskId, runId, employeeId, _clock.GetUtcNow());
+            _events.Emit("run.started", employeeId, taskId, runId);
+
+            var result = await provider.RunAsync(spec, CancellationToken.None);
+
+            _tasks.ApplyResult(taskId, employeeId, runId, result, _clock.GetUtcNow());
+            _events.Emit("run.finished", employeeId, taskId, runId, new { status = result.Status.ToString(), result.Summary });
+        }
+        catch (Exception ex)
+        {
+            _tasks.FailRun(taskId, runId, ex.Message, _clock.GetUtcNow());
+            _events.Emit("run.finished", employeeId, taskId, runId, new { status = "Failed", summary = ex.Message });
+        }
+        finally
+        {
+            lock (_gate) _busy.Remove(employeeId);
+            Pump();
+        }
+    }
+}

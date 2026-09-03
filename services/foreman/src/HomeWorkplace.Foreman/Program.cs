@@ -12,6 +12,9 @@ builder.Services.AddSingleton<EmployeeCatalog>();
 builder.Services.AddSingleton<FileStore>();
 builder.Services.AddHttpClient<IContextApiClient, ContextApiClient>();
 builder.Services.AddSingleton<TaskBook>();
+builder.Services.AddSingleton<PersonaComposer>();
+builder.Services.AddSingleton<IAgentProvider, NotConfiguredProvider>();
+builder.Services.AddSingleton<RunSupervisor>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -36,14 +39,22 @@ app.MapGet("/employees", (EmployeeCatalog c) => Results.Ok(c.List()));
 app.MapGet("/employees/{id}", (string id, EmployeeCatalog c) =>
     c.View(id) is { } v ? Results.Ok(v) : Results.NotFound());
 app.MapPost("/employees/reload", (EmployeeCatalog c) => { c.Load(); return Results.NoContent(); });
+app.MapPost("/employees/{id}/wake", (string id, EmployeeCatalog cat, RunSupervisor sup) =>
+{
+    if (cat.Find(id) is null) return Results.NotFound();
+    cat.Wake(id, until: null);
+    sup.Pump();
+    return Results.NoContent();
+});
 
-app.MapPost("/tasks", async (CreateTaskRequest req, TaskBook book, EmployeeCatalog cat, CancellationToken ct) =>
+app.MapPost("/tasks", async (CreateTaskRequest req, TaskBook book, EmployeeCatalog cat, RunSupervisor sup, CancellationToken ct) =>
 {
     if (string.IsNullOrWhiteSpace(req.Title) || string.IsNullOrWhiteSpace(req.Brief))
         return Results.ValidationProblem(new Dictionary<string, string[]> { ["body"] = new[] { "title and brief are required." } });
     if (string.IsNullOrWhiteSpace(req.Assignee) || cat.Find(req.Assignee) is null)
         return Results.Problem(detail: $"Unknown employee '{req.Assignee}'.", statusCode: 400);
     var task = await book.CreateAsync(req, ct);
+    sup.Pump();
     return Results.Created($"/tasks/{task.Id}", task);
 });
 app.MapGet("/tasks", (TaskState? status, string? assignee, TaskBook book) => Results.Ok(book.List(status, assignee)));

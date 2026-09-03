@@ -19,13 +19,17 @@ public sealed class EmployeeCatalog
 
     private readonly ForemanOptions _options;
     private readonly EventLog _events;
+    private readonly TimeProvider _clock;
+    private readonly FileStore _store;
     private readonly ConcurrentDictionary<string, EmployeeDefinition> _defs = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, EmployeeState> _states = new(StringComparer.Ordinal);
 
-    public EmployeeCatalog(ForemanOptions options, EventLog events)
+    public EmployeeCatalog(ForemanOptions options, EventLog events, TimeProvider clock, FileStore store)
     {
         _options = options;
         _events = events;
+        _clock = clock;
+        _store = store;
         Load();
     }
 
@@ -72,9 +76,38 @@ public sealed class EmployeeCatalog
     public void SetState(EmployeeState state)
     {
         _states[state.Id] = state;
+        _store.SaveState(state);
         _events.Emit("employee.state", employeeId: state.Id,
             data: new { state.Status, state.CurrentTaskId, state.RunsToday });
     }
+
+    /// <summary>Overlay persisted states at startup (restart recovery).</summary>
+    public void SeedStates(IEnumerable<EmployeeState> states)
+    {
+        foreach (var s in states) _states[s.Id] = s;
+    }
+
+    public void MarkWorking(string id, string taskId)
+        => SetState(GetState(id) with { Status = EmployeeStatus.Working, CurrentTaskId = taskId });
+
+    public void MarkWaiting(string id)
+        => SetState(GetState(id) with { Status = EmployeeStatus.Waiting });
+
+    /// <summary>A run finished: back to Awake, task cleared, a run counted toward the day.</summary>
+    public void Free(string id)
+    {
+        var s = GetState(id);
+        SetState(s with
+        {
+            Status = EmployeeStatus.Awake,
+            CurrentTaskId = null,
+            RunsToday = s.RunsToday + 1,
+            LastRunAt = _clock.GetUtcNow(),
+        });
+    }
+
+    public void Wake(string id, DateTimeOffset? until)
+        => SetState(GetState(id) with { Status = EmployeeStatus.Awake, AwakeOverrideUntil = until });
 
     public IReadOnlyList<EmployeeView> List()
         => _defs.Values
