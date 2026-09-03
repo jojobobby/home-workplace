@@ -125,6 +125,29 @@ public sealed class TaskBook
             $"Run finished ({result.Status}): {result.Summary}", CancellationToken.None);
     }
 
+    /// <summary>Sign off a task parked for approval.</summary>
+    public bool Approve(string id)
+    {
+        if (Get(id) is not { Status: TaskState.NeedsHuman, AwaitingApproval: true } t) return false;
+        t.Status = TaskState.Done;
+        t.AwaitingApproval = false;
+        Save(t);
+        _ = _rooms.PostAsync(t.Room, "foreman", "Foreman", null, "Approved by a human.", CancellationToken.None);
+        return true;
+    }
+
+    /// <summary>Deliver a human's answer to a task parked on a question; re-queue it to resume.</summary>
+    public bool Answer(string id, string text, RunSupervisor supervisor)
+    {
+        if (Get(id) is not { Status: TaskState.NeedsHuman, AwaitingApproval: false } t) return false;
+        t.PendingAnswer = new PendingAnswer("human", text);
+        t.PendingQuestion = null;
+        t.Status = TaskState.Queued;
+        Save(t);
+        supervisor.Pump();
+        return true;
+    }
+
     /// <summary>An exception escaped the run: close it failed and free the employee.</summary>
     public void FailRun(string taskId, string runId, string error, DateTimeOffset now)
     {

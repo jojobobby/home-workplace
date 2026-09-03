@@ -59,6 +59,12 @@ app.MapPost("/tasks", async (CreateTaskRequest req, TaskBook book, EmployeeCatal
 });
 app.MapGet("/tasks", (TaskState? status, string? assignee, TaskBook book) => Results.Ok(book.List(status, assignee)));
 app.MapGet("/tasks/{id}", (string id, TaskBook book) => book.Get(id) is { } t ? Results.Ok(t) : Results.NotFound());
+app.MapPost("/tasks/{id}/approve", (string id, TaskBook book) =>
+    book.Get(id) is null ? Results.NotFound() : book.Approve(id) ? Results.Ok(book.Get(id)) : Results.Conflict());
+app.MapPost("/tasks/{id}/answer", (string id, AnswerRequest req, TaskBook book, RunSupervisor sup) =>
+    book.Get(id) is null ? Results.NotFound()
+    : string.IsNullOrWhiteSpace(req.Text) ? Results.ValidationProblem(new Dictionary<string, string[]> { ["text"] = new[] { "text is required." } })
+    : book.Answer(id, req.Text!, sup) ? Results.Ok(book.Get(id)) : Results.Conflict());
 
 app.Run();
 
