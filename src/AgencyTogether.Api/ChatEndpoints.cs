@@ -1,7 +1,12 @@
+using System.Text.RegularExpressions;
+
 namespace AgencyTogether.Api;
 
-public static class ChatEndpoints
+public static partial class ChatEndpoints
 {
+    [GeneratedRegex("^[a-z0-9][a-z0-9_-]{0,63}$")]
+    private static partial Regex RoomIdPattern();
+
     public static WebApplication MapChatEndpoints(this WebApplication app)
     {
         app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
@@ -21,6 +26,48 @@ public static class ChatEndpoints
         return app;
     }
 
+    internal static bool TryNormalizeRoomId(string raw, out string roomId)
+    {
+        roomId = (raw ?? string.Empty).Trim().ToLowerInvariant();
+        return RoomIdPattern().IsMatch(roomId);
+    }
+
+    internal static Dictionary<string, string[]>? ValidateRequest(
+        PostMessageRequest request, ChatOptions options)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        if (string.IsNullOrWhiteSpace(request.Id))
+        {
+            errors["id"] = new[] { "id is required." };
+        }
+        else if (request.Id.Trim().Length > options.MaxAgentIdLength)
+        {
+            errors["id"] = new[] { $"id must be at most {options.MaxAgentIdLength} characters." };
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Content))
+        {
+            errors["content"] = new[] { "content is required." };
+        }
+        else if (request.Content.Length > options.MaxContentLength)
+        {
+            errors["content"] = new[] { $"content must be at most {options.MaxContentLength} characters." };
+        }
+
+        if (request.Name is { Length: > 0 } && request.Name.Trim().Length > options.MaxNameLength)
+        {
+            errors["name"] = new[] { $"name must be at most {options.MaxNameLength} characters." };
+        }
+
+        if (request.Goal is { Length: > 0 } && request.Goal.Trim().Length > options.MaxGoalLength)
+        {
+            errors["goal"] = new[] { $"goal must be at most {options.MaxGoalLength} characters." };
+        }
+
+        return errors.Count == 0 ? null : errors;
+    }
+
     internal static int ClampLimit(int? limit, ChatOptions options)
         => limit is null or <= 0
             ? options.DefaultLimit
@@ -31,11 +78,28 @@ public static class ChatEndpoints
             ? TimeSpan.Zero
             : TimeSpan.FromSeconds(Math.Min(wait.Value, options.MaxWaitSeconds));
 
+    private static IResult InvalidRoomId()
+        => Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["roomId"] = new[] { "roomId must match ^[a-z0-9][a-z0-9_-]{0,63}$." },
+        });
+
     private static IResult PostMessage(
         string roomId, PostMessageRequest request, long? since, ChatStore store, ChatOptions options)
     {
+        if (!TryNormalizeRoomId(roomId, out var normalizedRoom))
+        {
+            return InvalidRoomId();
+        }
+
+        var errors = ValidateRequest(request, options);
+        if (errors is not null)
+        {
+            return Results.ValidationProblem(errors);
+        }
+
         var posted = store.Post(
-            roomId, request.Id!.Trim(), request.Name, request.Goal, request.Content!);
+            normalizedRoom, request.Id!.Trim(), request.Name, request.Goal, request.Content!);
 
         if (posted is null)
         {
@@ -44,11 +108,11 @@ public static class ChatEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var snapshot = store.Read(roomId, since ?? posted.Seq, options.DefaultLimit);
+        var snapshot = store.Read(normalizedRoom, since ?? posted.Seq, options.DefaultLimit);
 
-        return Results.Created($"/rooms/{roomId}/messages/{posted.Seq}", new PostMessageResponse
+        return Results.Created($"/rooms/{normalizedRoom}/messages/{posted.Seq}", new PostMessageResponse
         {
-            Room = roomId,
+            Room = normalizedRoom,
             Posted = posted,
             Cursor = snapshot.Cursor,
             Messages = since is null ? Array.Empty<ChatMessage>() : snapshot.Messages,
@@ -59,11 +123,16 @@ public static class ChatEndpoints
 
     private static IResult ReadRoom(string roomId, long since, int limit, ChatStore store)
     {
-        var snapshot = store.Read(roomId, since, limit);
+        if (!TryNormalizeRoomId(roomId, out var normalizedRoom))
+        {
+            return InvalidRoomId();
+        }
+
+        var snapshot = store.Read(normalizedRoom, since, limit);
 
         return Results.Ok(new RoomReadResponse
         {
-            Room = roomId,
+            Room = normalizedRoom,
             Cursor = snapshot.Cursor,
             Messages = snapshot.Messages,
             Agents = snapshot.Agents,
