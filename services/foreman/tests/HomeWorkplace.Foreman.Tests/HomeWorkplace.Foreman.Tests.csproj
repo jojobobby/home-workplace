@@ -26,4 +26,8 @@
     <ProjectReference Include="..\..\src\HomeWorkplace.Foreman\HomeWorkplace.Foreman.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

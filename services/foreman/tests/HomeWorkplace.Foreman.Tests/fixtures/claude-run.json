@@ -1,0 +1,1 @@
+{"type":"result","subtype":"success","is_error":false,"duration_ms":1234,"num_turns":3,"result":"{\"status\":\"done\",\"summary\":\"hello from claude\"}","session_id":"claude-sess-abc","total_cost_usd":0.0021,"usage":{"input_tokens":100,"output_tokens":50}}
