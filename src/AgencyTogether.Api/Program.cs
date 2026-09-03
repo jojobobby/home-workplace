@@ -1,5 +1,13 @@
+using AgencyTogether.Api;
+
 var builder = WebApplication.CreateBuilder(args);
 
+var chatOptions = builder.Configuration.GetSection(ChatOptions.SectionName).Get<ChatOptions>()
+                  ?? new ChatOptions();
+
+builder.Services.AddSingleton(chatOptions);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ChatStore>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -11,7 +19,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapChatEndpoints();
 
 app.Run();
 
