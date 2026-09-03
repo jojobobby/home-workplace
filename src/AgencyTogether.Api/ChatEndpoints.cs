@@ -25,6 +25,21 @@ public static partial class ChatEndpoints
                 => ReadRoomAsync(roomId, since ?? 0, ClampLimit(limit, options),
                                  ClampWait(wait, options), store, cancellationToken));
 
+        app.MapGet("/firehose",
+            async (long? since, int? limit, int? wait,
+                   ChatStore store, ChatOptions options, CancellationToken cancellationToken) =>
+            {
+                var snapshot = await store.ReadFirehoseWithWaitAsync(
+                    since ?? 0, ClampLimit(limit, options), ClampWait(wait, options), cancellationToken);
+
+                return Results.Ok(new FirehoseResponse
+                {
+                    Cursor = snapshot.Cursor,
+                    Messages = snapshot.Messages,
+                    Truncated = snapshot.Truncated,
+                });
+            });
+
         return app;
     }
 

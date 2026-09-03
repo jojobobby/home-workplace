@@ -12,8 +12,11 @@ public sealed class ChatStore
     private readonly TimeProvider _clock;
     private readonly ConcurrentDictionary<string, Room> _rooms = new(StringComparer.Ordinal);
     private readonly object _globalGate = new();
+    private readonly Queue<ChatMessage> _firehose = new();
+    private readonly List<TaskCompletionSource> _globalWaiters = new();
 
     private long _globalSeq;
+    private long _firstAvailableGlobalSeq = 1;
 
     public ChatStore(ChatOptions options, TimeProvider clock)
     {
@@ -39,9 +42,24 @@ public sealed class ChatStore
             }
 
             var globalSeq = ++_globalSeq;
-            return room.Append(
+            var message = room.Append(
                 agentId, name, goal, content, globalSeq,
                 _clock.GetUtcNow(), _options.MaxMessagesPerRoom);
+
+            _firehose.Enqueue(message);
+            while (_firehose.Count > _options.FirehoseCapacity)
+            {
+                _firstAvailableGlobalSeq = _firehose.Dequeue().GlobalSeq + 1;
+            }
+
+            foreach (var waiter in _globalWaiters)
+            {
+                waiter.TrySetResult();
+            }
+
+            _globalWaiters.Clear();
+
+            return message;
         }
     }
 
@@ -90,6 +108,59 @@ public sealed class ChatStore
             if (completed != signal)
             {
                 return Read(roomId, since, limit);
+            }
+        }
+    }
+
+    public FirehoseSnapshot ReadFirehose(long since, int limit)
+    {
+        lock (_globalGate)
+        {
+            var messages = _firehose
+                .Where(m => m.GlobalSeq > since)
+                .Take(limit)
+                .ToArray();
+
+            return new FirehoseSnapshot(_globalSeq, messages, since + 1 < _firstAvailableGlobalSeq);
+        }
+    }
+
+    public async Task<FirehoseSnapshot> ReadFirehoseWithWaitAsync(
+        long since, int limit, TimeSpan wait, CancellationToken cancellationToken)
+    {
+        var deadline = _clock.GetUtcNow() + wait;
+
+        while (true)
+        {
+            var snapshot = ReadFirehose(since, limit);
+            if (snapshot.Messages.Count > 0 || wait <= TimeSpan.Zero)
+            {
+                return snapshot;
+            }
+
+            var remaining = deadline - _clock.GetUtcNow();
+            if (remaining <= TimeSpan.Zero)
+            {
+                return snapshot;
+            }
+
+            Task signal;
+            lock (_globalGate)
+            {
+                if (_globalSeq > since)
+                {
+                    continue;
+                }
+
+                var waiter = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _globalWaiters.Add(waiter);
+                signal = waiter.Task;
+            }
+
+            var completed = await Task.WhenAny(signal, Task.Delay(remaining, cancellationToken));
+            if (completed != signal)
+            {
+                return ReadFirehose(since, limit);
             }
         }
     }

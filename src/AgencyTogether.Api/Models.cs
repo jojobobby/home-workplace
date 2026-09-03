@@ -54,3 +54,15 @@ public sealed record PostMessageResponse
     public required IReadOnlyList<AgentPresence> Agents { get; init; }
     public required bool Truncated { get; init; }
 }
+
+public sealed record FirehoseSnapshot(
+    long Cursor,
+    IReadOnlyList<ChatMessage> Messages,
+    bool Truncated);
+
+public sealed record FirehoseResponse
+{
+    public required long Cursor { get; init; }
+    public required IReadOnlyList<ChatMessage> Messages { get; init; }
+    public required bool Truncated { get; init; }
+}
