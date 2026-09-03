@@ -5,6 +5,7 @@ public sealed class Room
     private readonly object _gate = new();
     private readonly List<ChatMessage> _messages = new();
     private readonly Dictionary<string, AgentPresence> _agents = new(StringComparer.Ordinal);
+    private readonly List<TaskCompletionSource> _waiters = new();
 
     private long _seq;
     private long _firstAvailableSeq = 1;
@@ -64,6 +65,7 @@ public sealed class Room
                 _messages.RemoveAt(0);
             }
 
+            ReleaseWaiters();
             return message;
         }
     }
@@ -84,5 +86,37 @@ public sealed class Room
 
             return new RoomSnapshot(_seq, messages, agents, since + 1 < _firstAvailableSeq);
         }
+    }
+
+    /// <summary>
+    /// Registers a waiter for new messages. Returns false (with a completed signal) when
+    /// something newer than <paramref name="since"/> already exists. The check and the
+    /// registration happen under one lock, so a write cannot slip between them.
+    /// </summary>
+    public bool TryRegisterWaiter(long since, out Task signal)
+    {
+        lock (_gate)
+        {
+            if (_seq > since)
+            {
+                signal = Task.CompletedTask;
+                return false;
+            }
+
+            var waiter = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _waiters.Add(waiter);
+            signal = waiter.Task;
+            return true;
+        }
+    }
+
+    private void ReleaseWaiters()
+    {
+        foreach (var waiter in _waiters)
+        {
+            waiter.TrySetResult();
+        }
+
+        _waiters.Clear();
     }
 }

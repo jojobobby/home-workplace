@@ -20,8 +20,10 @@ public static partial class ChatEndpoints
                 => PostMessage(roomId, request, since, store, options));
 
         app.MapGet("/rooms/{roomId}/messages",
-            (string roomId, long? since, int? limit, ChatStore store, ChatOptions options)
-                => ReadRoom(roomId, since ?? 0, ClampLimit(limit, options), store));
+            (string roomId, long? since, int? limit, int? wait,
+             ChatStore store, ChatOptions options, CancellationToken cancellationToken)
+                => ReadRoomAsync(roomId, since ?? 0, ClampLimit(limit, options),
+                                 ClampWait(wait, options), store, cancellationToken));
 
         return app;
     }
@@ -121,14 +123,17 @@ public static partial class ChatEndpoints
         });
     }
 
-    private static IResult ReadRoom(string roomId, long since, int limit, ChatStore store)
+    private static async Task<IResult> ReadRoomAsync(
+        string roomId, long since, int limit, TimeSpan wait,
+        ChatStore store, CancellationToken cancellationToken)
     {
         if (!TryNormalizeRoomId(roomId, out var normalizedRoom))
         {
             return InvalidRoomId();
         }
 
-        var snapshot = store.Read(normalizedRoom, since, limit);
+        var snapshot = await store.ReadWithWaitAsync(
+            normalizedRoom, since, limit, wait, cancellationToken);
 
         return Results.Ok(new RoomReadResponse
         {
