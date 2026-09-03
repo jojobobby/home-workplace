@@ -20,6 +20,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapChatEndpoints();
+app.MapFolderEndpoints();
 
 app.Run();
 

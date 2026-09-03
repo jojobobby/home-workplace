@@ -5,6 +5,7 @@ public sealed class Room
     private readonly object _gate = new();
     private readonly List<ChatMessage> _messages = new();
     private readonly Dictionary<string, AgentPresence> _agents = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, SharedFile> _files = new(StringComparer.Ordinal);
     private readonly List<TaskCompletionSource> _waiters = new();
 
     private long _seq;
@@ -91,6 +92,7 @@ public sealed class Room
             {
                 Room = Id,
                 MessageCount = _messages.Count,
+                FileCount = _files.Count,
                 Cursor = _seq,
                 Agents = OrderedAgents().Select(a => a.AgentId).ToArray(),
                 LastActivity = _messages.Count == 0 ? null : _messages[^1].Timestamp,
@@ -99,9 +101,75 @@ public sealed class Room
     }
 
     /// <summary>
-    /// Drops every message and the roster. The seq counter is deliberately left alone so
-    /// cursors held by polling agents stay valid; the retention floor moves past the old
-    /// head so those agents are told they have a gap rather than silently missing it.
+    /// Writes or overwrites a file. Returns null when the path is new and the room is
+    /// already at <paramref name="maxFiles"/>; overwriting an existing path is always allowed.
+    /// </summary>
+    public SharedFile? PutFile(
+        string path, string content, long bytes, string agentId, DateTimeOffset now, int maxFiles)
+    {
+        lock (_gate)
+        {
+            _files.TryGetValue(path, out var existing);
+
+            if (existing is null && _files.Count >= maxFiles)
+            {
+                return null;
+            }
+
+            var file = new SharedFile
+            {
+                Path = path,
+                Content = content,
+                Bytes = bytes,
+                Version = (existing?.Version ?? 0) + 1,
+                UpdatedBy = agentId,
+                UpdatedAt = now,
+            };
+
+            _files[path] = file;
+            return file;
+        }
+    }
+
+    public SharedFile? GetFile(string path)
+    {
+        lock (_gate)
+        {
+            return _files.TryGetValue(path, out var file) ? file : null;
+        }
+    }
+
+    public bool DeleteFile(string path)
+    {
+        lock (_gate)
+        {
+            return _files.Remove(path);
+        }
+    }
+
+    public IReadOnlyList<FileSummary> ListFiles()
+    {
+        lock (_gate)
+        {
+            return _files.Values
+                .OrderBy(f => f.Path, StringComparer.Ordinal)
+                .Select(f => new FileSummary
+                {
+                    Path = f.Path,
+                    Bytes = f.Bytes,
+                    Version = f.Version,
+                    UpdatedBy = f.UpdatedBy,
+                    UpdatedAt = f.UpdatedAt,
+                })
+                .ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Drops every message, the roster, and the folder. The seq counter is deliberately
+    /// left alone so cursors held by polling agents stay valid; the retention floor moves
+    /// past the old head so those agents are told they have a gap rather than silently
+    /// missing it.
     /// </summary>
     public void Clear()
     {
@@ -109,6 +177,7 @@ public sealed class Room
         {
             _messages.Clear();
             _agents.Clear();
+            _files.Clear();
             _firstAvailableSeq = _seq + 1;
             ReleaseWaiters();
         }

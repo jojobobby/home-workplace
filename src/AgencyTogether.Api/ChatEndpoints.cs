@@ -141,7 +141,7 @@ public static partial class ChatEndpoints
             ? TimeSpan.Zero
             : TimeSpan.FromSeconds(Math.Min(wait.Value, options.MaxWaitSeconds));
 
-    private static IResult InvalidRoomId()
+    internal static IResult InvalidRoomId()
         => Results.ValidationProblem(new Dictionary<string, string[]>
         {
             ["roomId"] = new[] { "roomId must match ^[a-z0-9][a-z0-9_-]{0,63}$." },

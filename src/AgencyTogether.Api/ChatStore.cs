@@ -30,36 +30,58 @@ public sealed class ChatStore
     {
         lock (_globalGate)
         {
-            if (!_rooms.TryGetValue(roomId, out var room))
-            {
-                if (_rooms.Count >= _options.MaxRooms)
-                {
-                    return null;
-                }
+            var room = GetOrCreateRoomLocked(roomId);
+            return room is null ? null : AppendLocked(room, agentId, name, goal, content);
+        }
+    }
 
-                room = new Room(roomId);
-                _rooms[roomId] = room;
+    /// <summary>
+    /// Writes a file into a room's folder and announces it in the room's chat, so agents
+    /// polling messages see folder changes without a second poll loop. The file write and
+    /// its announcement happen under one lock: a reader can never see the announcement
+    /// before the file is readable.
+    /// </summary>
+    public (SharedFile? File, string? Error) PutFile(
+        string roomId, string path, string content, long bytes, string agentId, string? name)
+    {
+        lock (_globalGate)
+        {
+            var room = GetOrCreateRoomLocked(roomId);
+            if (room is null)
+            {
+                return (null, $"Room limit of {_options.MaxRooms} reached.");
             }
 
-            var globalSeq = ++_globalSeq;
-            var message = room.Append(
-                agentId, name, goal, content, globalSeq,
-                _clock.GetUtcNow(), _options.MaxMessagesPerRoom);
-
-            _firehose.Enqueue(message);
-            while (_firehose.Count > _options.FirehoseCapacity)
+            var file = room.PutFile(path, content, bytes, agentId, _clock.GetUtcNow(), _options.MaxFilesPerRoom);
+            if (file is null)
             {
-                _firstAvailableGlobalSeq = _firehose.Dequeue().GlobalSeq + 1;
+                return (null, $"File limit of {_options.MaxFilesPerRoom} per room reached.");
             }
 
-            foreach (var waiter in _globalWaiters)
+            var verb = file.Version == 1 ? "created" : "updated";
+            AppendLocked(room, agentId, name, null, $"[file] {agentId} {verb} {path} (v{file.Version}, {bytes} bytes)");
+            return (file, null);
+        }
+    }
+
+    public SharedFile? GetFile(string roomId, string path)
+        => _rooms.TryGetValue(roomId, out var room) ? room.GetFile(path) : null;
+
+    public IReadOnlyList<FileSummary> ListFiles(string roomId)
+        => _rooms.TryGetValue(roomId, out var room) ? room.ListFiles() : Array.Empty<FileSummary>();
+
+    /// <summary>Removes a file and announces it. Returns false when there was nothing to remove.</summary>
+    public bool DeleteFile(string roomId, string path, string agentId, string? name)
+    {
+        lock (_globalGate)
+        {
+            if (!_rooms.TryGetValue(roomId, out var room) || !room.DeleteFile(path))
             {
-                waiter.TrySetResult();
+                return false;
             }
 
-            _globalWaiters.Clear();
-
-            return message;
+            AppendLocked(room, agentId, name, null, $"[file] {agentId} deleted {path}");
+            return true;
         }
     }
 
@@ -124,7 +146,7 @@ public sealed class ChatStore
     }
 
     /// <summary>
-    /// Clears a room's messages and roster. The room's seq counter is deliberately
+    /// Clears a room's messages, roster, and folder. The room's seq counter is deliberately
     /// left alone so cursors held by polling agents stay valid. The global room is
     /// cleared but never removed.
     /// </summary>
@@ -190,5 +212,50 @@ public sealed class ChatStore
                 return ReadFirehose(since, limit);
             }
         }
+    }
+
+    /// <summary>Caller must hold <see cref="_globalGate"/>.</summary>
+    private Room? GetOrCreateRoomLocked(string roomId)
+    {
+        if (_rooms.TryGetValue(roomId, out var room))
+        {
+            return room;
+        }
+
+        if (_rooms.Count >= _options.MaxRooms)
+        {
+            return null;
+        }
+
+        room = new Room(roomId);
+        _rooms[roomId] = room;
+        return room;
+    }
+
+    /// <summary>
+    /// The single write path: assigns the global sequence, appends to the room, feeds the
+    /// firehose ring, and releases firehose waiters. Caller must hold <see cref="_globalGate"/>.
+    /// </summary>
+    private ChatMessage AppendLocked(Room room, string agentId, string? name, string? goal, string content)
+    {
+        var globalSeq = ++_globalSeq;
+        var message = room.Append(
+            agentId, name, goal, content, globalSeq,
+            _clock.GetUtcNow(), _options.MaxMessagesPerRoom);
+
+        _firehose.Enqueue(message);
+        while (_firehose.Count > _options.FirehoseCapacity)
+        {
+            _firstAvailableGlobalSeq = _firehose.Dequeue().GlobalSeq + 1;
+        }
+
+        foreach (var waiter in _globalWaiters)
+        {
+            waiter.TrySetResult();
+        }
+
+        _globalWaiters.Clear();
+
+        return message;
     }
 }

@@ -71,9 +71,43 @@ public sealed record RoomSummary
 {
     public required string Room { get; init; }
     public required int MessageCount { get; init; }
+    public required int FileCount { get; init; }
     public required long Cursor { get; init; }
     public required IReadOnlyList<string> Agents { get; init; }
     public DateTimeOffset? LastActivity { get; init; }
+}
+
+public sealed record SharedFile
+{
+    public required string Path { get; init; }
+    public required string Content { get; init; }
+    public required long Bytes { get; init; }
+    public required int Version { get; init; }
+    public required string UpdatedBy { get; init; }
+    public required DateTimeOffset UpdatedAt { get; init; }
+}
+
+public sealed record FileSummary
+{
+    public required string Path { get; init; }
+    public required long Bytes { get; init; }
+    public required int Version { get; init; }
+    public required string UpdatedBy { get; init; }
+    public required DateTimeOffset UpdatedAt { get; init; }
+}
+
+public sealed record FileWriteResponse
+{
+    public required string Room { get; init; }
+    public required string Path { get; init; }
+    public required int Version { get; init; }
+    public required long Bytes { get; init; }
+}
+
+public sealed record FileListResponse
+{
+    public required string Room { get; init; }
+    public required IReadOnlyList<FileSummary> Files { get; init; }
 }
 
 public sealed record RoomListResponse

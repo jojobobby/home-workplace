@@ -14,4 +14,6 @@ public sealed class ChatOptions
     public int DefaultLimit { get; set; } = 200;
     public int MaxLimit { get; set; } = 500;
     public int FirehoseCapacity { get; set; } = 2000;
+    public int MaxFilesPerRoom { get; set; } = 100;
+    public int MaxFileBytes { get; set; } = 262144;
 }
