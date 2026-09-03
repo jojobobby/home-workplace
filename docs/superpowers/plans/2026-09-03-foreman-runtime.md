@@ -735,24 +735,24 @@ git add -A && git commit -m "feat(foreman): EmployeeCatalog loads folder-defined
 Creates the `Task` record, its on-disk persistence, and create/list/get. Tasks are created `queued`; nothing runs yet (employees are asleep and the run engine arrives in Task 6). Introduces the `IContextApiClient` seam and its fake so a created task can announce itself in its room.
 
 **Files:**
-- Create: `TaskBook.cs`, `FileStore.cs`, `IContextApiClient.cs`; add `Task`(record), `TaskStatus`, `ProgressEntry`, `RunRecord`, `Usage`, `PendingAnswer`, `HandoffAsk`, `CreateTaskRequest` to `Models.cs`
+- Create: `TaskBook.cs`, `FileStore.cs`, `IContextApiClient.cs`; add `Task`(record), `TaskState`, `ProgressEntry`, `RunRecord`, `Usage`, `PendingAnswer`, `HandoffAsk`, `CreateTaskRequest` to `Models.cs`
 - Modify: `Program.cs` (register `FileStore`, `TaskBook`, real `ContextApiClient`; map `/tasks`), `ForemanFactory.cs` (register `FakeContextApi`), create `FakeContextApi.cs`
 - Test: `TaskLifecycleTests.cs` (create/list/get portion)
 
 **Interfaces:**
 - Consumes: `ForemanOptions`, `TimeProvider`, `EventLog`, `EmployeeCatalog`, `IContextApiClient`.
 - Produces:
-  - `enum TaskStatus { Queued, Running, Waiting, NeedsHuman, Done, Failed, Cancelled }`
+  - `enum TaskState { Queued, Running, Waiting, NeedsHuman, Done, Failed, Cancelled }`
   - `record ProgressEntry(string Author, DateOnly Date, IReadOnlyList<string> Done, IReadOnlyList<string> Next)`
   - `record Usage(long DurationMs, long? InputTokens, long? OutputTokens, decimal? CostUsd, int? Turns)`
   - `record RunRecord(string Id, string Employee, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, string Status, Usage? Usage, string? ResultSummary)`
   - `record HandoffAsk(string To, string Question)`; `record PendingAnswer(string From, string Text)`
-  - `record TaskModel { string Id; string Title; string Brief; string Assignee; TaskStatus Status; bool RequiresApproval; string? ParentId; List<string> ChildIds; string Room; string Workspace; SessionRef? Session; List<ProgressEntry> Progress; List<RunRecord> Runs; PendingAnswer? PendingAnswer; DateTimeOffset CreatedAt; DateTimeOffset UpdatedAt; }` (named `TaskModel` to avoid clashing with `System.Threading.Tasks.Task`)
+  - `record TaskModel { string Id; string Title; string Brief; string Assignee; TaskState Status; bool RequiresApproval; string? ParentId; List<string> ChildIds; string Room; string Workspace; SessionRef? Session; List<ProgressEntry> Progress; List<RunRecord> Runs; PendingAnswer? PendingAnswer; DateTimeOffset CreatedAt; DateTimeOffset UpdatedAt; }` (named `TaskModel` to avoid clashing with `System.Threading.Tasks.Task`)
   - `record SessionRef(string Vendor, string SessionId, DateOnly Day)`
   - `record CreateTaskRequest(string? Title, string? Brief, string? Assignee, bool RequiresApproval)`
   - `IContextApiClient` (methods in the code below).
   - `FileStore` with `void SaveTask(TaskModel)`, `void SaveState(EmployeeState)`, `IReadOnlyList<TaskModel> LoadTasks()`, `IReadOnlyList<EmployeeState> LoadStates()`, plus event persistence used in Task 12.
-  - `TaskBook` with `TaskModel Create(CreateTaskRequest)`, `TaskModel? Get(string id)`, `IReadOnlyList<TaskModel> List(TaskStatus? status, string? assignee)`, and (used by Task 6+) `void Save(TaskModel)`, `IEnumerable<TaskModel> Queued()`.
+  - `TaskBook` with `TaskModel Create(CreateTaskRequest)`, `TaskModel? Get(string id)`, `IReadOnlyList<TaskModel> List(TaskState? status, string? assignee)`, and (used by Task 6+) `void Save(TaskModel)`, `IEnumerable<TaskModel> Queued()`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -793,7 +793,7 @@ public class TaskLifecycleTests
             new { title = "Build parser", brief = "Write a JSON parser", assignee = "ada-coder" }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
 
-        Assert.Equal(TaskStatus.Queued, created!.Status);
+        Assert.Equal(TaskState.Queued, created!.Status);
         Assert.Equal("ada-coder", created.Assignee);
         Assert.Equal($"task-{created.Id}", created.Room);
         Assert.Contains(factory.ContextApi.Posts, p => p.Room == created.Room && p.Content.Contains("Build parser"));
@@ -943,7 +943,7 @@ app.MapPost("/tasks", async (CreateTaskRequest req, TaskBook book, EmployeeCatal
     var task = await book.CreateAsync(req, ct);
     return Results.Created($"/tasks/{task.Id}", task);
 });
-app.MapGet("/tasks", (TaskStatus? status, string? assignee, TaskBook book) => Results.Ok(book.List(status, assignee)));
+app.MapGet("/tasks", (TaskState? status, string? assignee, TaskBook book) => Results.Ok(book.List(status, assignee)));
 app.MapGet("/tasks/{id}", (string id, TaskBook book) => book.Get(id) is { } t ? Results.Ok(t) : Results.NotFound());
 ```
 
@@ -1009,7 +1009,7 @@ Append to `TaskLifecycleTests.cs`:
             new { title = "Build parser", brief = "Write it", assignee = "ada-coder" }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
 
-        var done = await PollUntil(client, created!.Id, t => t.Status == TaskStatus.Done);
+        var done = await PollUntil(client, created!.Id, t => t.Status == TaskState.Done);
         Assert.Single(done.Runs);
         Assert.Equal("parser shipped", done.Runs[0].ResultSummary);
     }
@@ -1026,7 +1026,7 @@ Append to `TaskLifecycleTests.cs`:
             new { title = "Build parser", brief = "Write a JSON parser", assignee = "ada-coder" }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
 
-        await PollUntil(client, created!.Id, t => t.Status == TaskStatus.Done);
+        await PollUntil(client, created!.Id, t => t.Status == TaskState.Done);
         var spec = Assert.Single(factory.Provider.Specs);
         Assert.Contains("Ada", spec.SystemPrompt);           // identity
         Assert.Contains("Write a JSON parser", spec.Prompt);  // brief
@@ -1051,9 +1051,9 @@ Append to `TaskLifecycleTests.cs`:
 
         await Task.Delay(200);
         var bMid = await client.GetFromJsonAsync<TaskModel>($"/tasks/{b!.Id}", TestJson.Options);
-        Assert.Equal(TaskStatus.Queued, bMid!.Status);   // B waits while A holds the employee
+        Assert.Equal(TaskState.Queued, bMid!.Status);   // B waits while A holds the employee
         gate.SetResult();
-        await PollUntil(client, b.Id, t => t.Status == TaskStatus.Done);
+        await PollUntil(client, b.Id, t => t.Status == TaskState.Done);
     }
 ```
 
@@ -1333,12 +1333,12 @@ public class ApprovalTests
             new { title="X", brief="y", assignee="ada-coder", requiresApproval=true }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
 
-        var parked = await Poll(c, t!.Id, x => x.Status == TaskStatus.NeedsHuman);
+        var parked = await Poll(c, t!.Id, x => x.Status == TaskState.NeedsHuman);
         Assert.True(parked.AwaitingApproval);
 
         var ok = await c.PostAsync($"/tasks/{t.Id}/approve", null);
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
-        Assert.Equal(TaskStatus.Done, (await c.GetFromJsonAsync<TaskModel>($"/tasks/{t.Id}", TestJson.Options))!.Status);
+        Assert.Equal(TaskState.Done, (await c.GetFromJsonAsync<TaskModel>($"/tasks/{t.Id}", TestJson.Options))!.Status);
     }
 
     [Fact]
@@ -1351,7 +1351,7 @@ public class ApprovalTests
         await c.PostAsync("/employees/ada-coder/wake", null);
         var t = await (await c.PostAsJsonAsync("/tasks", new { title="X", brief="y", assignee="ada-coder" }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
-        await Poll(c, t!.Id, x => x.Status == TaskStatus.Running);
+        await Poll(c, t!.Id, x => x.Status == TaskState.Running);
 
         var resp = await c.PostAsync($"/tasks/{t.Id}/approve", null);
         Assert.Equal(HttpStatusCode.Conflict, resp.StatusCode);
@@ -1371,11 +1371,11 @@ public class ApprovalTests
         var t = await (await c.PostAsJsonAsync("/tasks", new { title="X", brief="y", assignee="ada-coder" }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
 
-        var parked = await Poll(c, t!.Id, x => x.Status == TaskStatus.NeedsHuman);
+        var parked = await Poll(c, t!.Id, x => x.Status == TaskState.NeedsHuman);
         Assert.False(parked.AwaitingApproval);
 
         await c.PostAsJsonAsync($"/tasks/{t.Id}/answer", new { text = "use JSON" });
-        var done = await Poll(c, t.Id, x => x.Status == TaskStatus.Done);
+        var done = await Poll(c, t.Id, x => x.Status == TaskState.Done);
         Assert.Equal(2, done.Runs.Count);
         Assert.Equal(SessionMode.Resume, factory.Provider.Specs[1].Mode);
         Assert.Contains("use JSON", factory.Provider.Specs[1].Prompt);
@@ -1462,7 +1462,7 @@ public class HandoffTests
         var parent = await (await c.PostAsJsonAsync("/tasks", new { title="P", brief="parent", assignee="ada" }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
 
-        var finished = await Poll(c, parent!.Id, t => t.Status == TaskStatus.Done, 8);
+        var finished = await Poll(c, parent!.Id, t => t.Status == TaskState.Done, 8);
         Assert.Single(finished.ChildIds);
         // parent's 2nd run resumed and its prompt carried the child's answer
         var adaResume = factory.Provider.Specs.Last(s => s.TaskId == parent.Id);
@@ -1484,9 +1484,9 @@ public class HandoffTests
         var parent = await (await c.PostAsJsonAsync("/tasks", new { title="P", brief="p", assignee="ada" }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
 
-        await Poll(c, parent!.Id, t => t.Status == TaskStatus.Waiting, 8);
+        await Poll(c, parent!.Id, t => t.Status == TaskState.Waiting, 8);
         childGate.SetResult();
-        await Poll(c, parent.Id, t => t.Status == TaskStatus.Done, 8);
+        await Poll(c, parent.Id, t => t.Status == TaskState.Done, 8);
     }
 
     [Fact]
@@ -1500,7 +1500,7 @@ public class HandoffTests
         var t = await (await c.PostAsJsonAsync("/tasks", new { title="P", brief="p", assignee="ada" }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
 
-        var parked = await Poll(c, t!.Id, x => x.Status == TaskStatus.NeedsHuman, 8);
+        var parked = await Poll(c, t!.Id, x => x.Status == TaskState.NeedsHuman, 8);
         Assert.False(parked.AwaitingApproval);
         Assert.Contains("help?", parked.PendingQuestion);
     }
@@ -1594,10 +1594,10 @@ public class ReassignTests
         await c.PostAsync("/employees/ada/wake", null); await c.PostAsync("/employees/rex/wake", null);
         var t = await (await c.PostAsJsonAsync("/tasks", new { title="T", brief="b", assignee="ada" }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
-        await Poll(c, t!.Id, x => x.Status == TaskStatus.Failed);
+        await Poll(c, t!.Id, x => x.Status == TaskState.Failed);
 
         await c.PostAsJsonAsync($"/tasks/{t.Id}/reassign", new { assignee = "rex" });
-        var done = await Poll(c, t.Id, x => x.Status == TaskStatus.Done, 8);
+        var done = await Poll(c, t.Id, x => x.Status == TaskState.Done, 8);
 
         Assert.Equal("rex", done.Assignee);
         var rexSpec = factory.Provider.Specs.Last();
@@ -1625,7 +1625,7 @@ public class ReassignTests
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
         var resp = await c.PostAsync($"/tasks/{t!.Id}/cancel", null);
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-        Assert.Equal(TaskStatus.Cancelled, (await c.GetFromJsonAsync<TaskModel>($"/tasks/{t.Id}", TestJson.Options))!.Status);
+        Assert.Equal(TaskState.Cancelled, (await c.GetFromJsonAsync<TaskModel>($"/tasks/{t.Id}", TestJson.Options))!.Status);
     }
 }
 ```
@@ -1717,7 +1717,7 @@ public class DayCycleTests
         await c.PostAsync("/employees/ada/wake", null);
         var t = await (await c.PostAsJsonAsync("/tasks", new { title="T", brief="b", assignee="ada" }))
             .Content.ReadFromJsonAsync<TaskModel>(TestJson.Options);
-        await Poll(c, t!.Id, x => x.Status == TaskStatus.NeedsHuman);
+        await Poll(c, t!.Id, x => x.Status == TaskState.NeedsHuman);
 
         await c.PostAsync("/employees/ada/reset", null);
 
@@ -1858,7 +1858,7 @@ public class RestartTests
             taskId = t!.Id;
             // wait until Running
             var end = DateTime.UtcNow.AddSeconds(5);
-            while ((await c1.GetFromJsonAsync<TaskModel>($"/tasks/{taskId}", TestJson.Options))!.Status != TaskStatus.Running && DateTime.UtcNow < end)
+            while ((await c1.GetFromJsonAsync<TaskModel>($"/tasks/{taskId}", TestJson.Options))!.Status != TaskState.Running && DateTime.UtcNow < end)
                 await Task.Delay(50);
             cursor = (await c1.GetFromJsonAsync<EventPage>("/events?since=0", TestJson.Options))!.Cursor;
         }
@@ -1868,7 +1868,7 @@ public class RestartTests
         await using var f2 = ForemanFactory.Existing(dataPath, employeesPath);
         using var c2 = f2.CreateClient();
         var recovered = await c2.GetFromJsonAsync<TaskModel>($"/tasks/{taskId}", TestJson.Options);
-        Assert.Equal(TaskStatus.Queued, recovered!.Status);          // running → queued
+        Assert.Equal(TaskState.Queued, recovered!.Status);          // running → queued
         var page = await c2.GetFromJsonAsync<EventPage>("/events?since=0", TestJson.Options);
         Assert.True(page!.Cursor >= cursor);                          // cursor did not reset
         try { Directory.Delete(dataPath, true); } catch { }

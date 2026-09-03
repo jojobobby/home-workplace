@@ -70,3 +70,52 @@ public sealed record EmployeeView
     public required int RunsToday { get; init; }
     public required int Energy { get; init; }
 }
+
+public enum TaskState { Queued, Running, Waiting, NeedsHuman, Done, Failed, Cancelled }
+
+public sealed record ProgressEntry(string Author, DateOnly Date, IReadOnlyList<string> Done, IReadOnlyList<string> Next);
+
+public sealed record Usage(long DurationMs, long? InputTokens, long? OutputTokens, decimal? CostUsd, int? Turns);
+
+public sealed record RunRecord
+{
+    public required string Id { get; init; }
+    public required string Employee { get; init; }
+    public required DateTimeOffset StartedAt { get; init; }
+    public DateTimeOffset? EndedAt { get; set; }
+    public string Status { get; set; } = "running";
+    public Usage? Usage { get; set; }
+    public string? ResultSummary { get; set; }
+}
+
+public sealed record HandoffAsk(string To, string Question);
+
+public sealed record PendingAnswer(string From, string Text);
+
+public sealed record SessionRef(string Vendor, string SessionId, DateOnly Day);
+
+public sealed class TaskModel
+{
+    public required string Id { get; set; }
+    public required string Title { get; set; }
+    public required string Brief { get; set; }
+    public required string Assignee { get; set; }
+    public TaskState Status { get; set; } = TaskState.Queued;
+    public bool RequiresApproval { get; set; }
+    public bool AwaitingApproval { get; set; }
+    public string? PendingQuestion { get; set; }
+    public string? ParentId { get; set; }
+    public List<string> ChildIds { get; set; } = new();
+    public required string Room { get; set; }
+    public required string Workspace { get; set; }
+    public SessionRef? Session { get; set; }
+    public List<ProgressEntry> Progress { get; set; } = new();
+    public List<RunRecord> Runs { get; set; } = new();
+    public PendingAnswer? PendingAnswer { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed record CreateTaskRequest(string? Title, string? Brief, string? Assignee, bool RequiresApproval = false);
+public sealed record AnswerRequest(string? Text);
+public sealed record ReassignRequest(string? Assignee);
