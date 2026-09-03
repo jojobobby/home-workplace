@@ -1,0 +1,28 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Test / coverage
+TestResults/
+coverage*.json
+coverage*.xml
+*.trx
+
+# Local secrets and overrides
+appsettings.Local.json
+appsettings.*.local.json
+*.pfx
+
+# OS
+.DS_Store
+Thumbs.db
