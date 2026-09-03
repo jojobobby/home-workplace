@@ -117,12 +117,91 @@ public sealed class TaskBook
                 _employees.Free(employeeId);
                 break;
             case RunOutcome.Handoff:
-                throw new NotSupportedException("handoff arrives in Task 8");
+                Handoff(t, employeeId, result.Ask);
+                break;
         }
 
         Save(t);
         _ = _rooms.PostAsync(t.Room, "foreman", "Foreman", null,
             $"Run finished ({result.Status}): {result.Summary}", CancellationToken.None);
+
+        // A completed child returns its answer to the parent, which re-queues to resume.
+        if (result.Status == RunOutcome.Done && t.Status == TaskState.Done && t.ParentId is not null)
+            OnChildDone(t);
+    }
+
+    /// <summary>Sub-ask: park the parent and spawn a child task carrying the question to a teammate.</summary>
+    private void Handoff(TaskModel parent, string employeeId, HandoffAsk? ask)
+    {
+        var to = ask?.To ?? "";
+        var question = ask?.Question ?? "(no question)";
+        var known = _employees.Find(to) is not null;
+        var tooDeep = Depth(parent) >= _options.MaxHandoffDepth;
+
+        if (!known || tooDeep)
+        {
+            parent.Status = TaskState.NeedsHuman;
+            parent.AwaitingApproval = false;
+            parent.PendingQuestion = known
+                ? $"{question} (hand-off chain too deep)"
+                : $"{question} (requested teammate '{to}' unavailable)";
+            _employees.Free(employeeId);
+            _events.Emit("human.needed", employeeId, parent.Id);
+            return;
+        }
+
+        var child = CreateChild(parent, to, question);
+        parent.ChildIds.Add(child.Id);
+        parent.Status = TaskState.Waiting;
+        _employees.MarkWaiting(employeeId);
+        _events.Emit("handoff.requested", employeeId, parent.Id, data: new { to, childId = child.Id });
+        _ = _rooms.PostAsync(parent.Room, "foreman", "Foreman", null, $"Asked {to}: {question}", CancellationToken.None);
+    }
+
+    private void OnChildDone(TaskModel child)
+    {
+        var parent = Get(child.ParentId!);
+        if (parent is null) return;
+        var answer = child.Runs.Count > 0 ? child.Runs[^1].ResultSummary ?? child.Title : child.Title;
+        parent.PendingAnswer = new PendingAnswer(child.Assignee, answer);
+        parent.Status = TaskState.Queued;
+        Save(parent);
+        _employees.Free(parent.Assignee);
+        _events.Emit("handoff.answered", parent.Assignee, parent.Id);
+        _ = _rooms.PostAsync(parent.Room, "foreman", "Foreman", null,
+            $"Answer delivered from {child.Assignee}.", CancellationToken.None);
+    }
+
+    private TaskModel CreateChild(TaskModel parent, string to, string question)
+    {
+        var now = _clock.GetUtcNow();
+        var id = Guid.NewGuid().ToString("N")[..8];
+        var child = new TaskModel
+        {
+            Id = id,
+            Title = $"Q for {to}: {(question.Length > 60 ? question[..60] : question)}",
+            Brief = $"{question}\n\nAnswer for the team in room {parent.Room}.",
+            Assignee = to,
+            Status = TaskState.Queued,
+            ParentId = parent.Id,
+            Room = $"task-{id}",
+            Workspace = Path.Combine(_options.DataPath, "workspaces", id),
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        Directory.CreateDirectory(child.Workspace);
+        Save(child);
+        _ = _rooms.PostAsync(child.Room, "foreman", "Foreman", null,
+            $"Task created (sub-ask from {parent.Assignee}): {child.Title}", CancellationToken.None);
+        return child;
+    }
+
+    private int Depth(TaskModel t)
+    {
+        var depth = 0;
+        var cur = t;
+        while (cur.ParentId is not null && Get(cur.ParentId) is { } p) { depth++; cur = p; }
+        return depth;
     }
 
     /// <summary>Sign off a task parked for approval.</summary>
