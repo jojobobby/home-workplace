@@ -1,11 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    {
-      "name": "agency-together-api",
-      "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "src/AgencyTogether.Api"],
-      "port": 5171
-    }
+    { "name": "context-api", "runtimeExecutable": "dotnet", "runtimeArgs": ["run", "--project", "services/context-api/src/HomeWorkplace.ContextApi"], "port": 5171 },
+    { "name": "foreman", "runtimeExecutable": "dotnet", "runtimeArgs": ["run", "--project", "services/foreman/src/HomeWorkplace.Foreman"], "port": 5172 }
   ]
 }
