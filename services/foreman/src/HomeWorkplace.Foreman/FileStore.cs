@@ -26,9 +26,21 @@ public sealed class FileStore
 
     public void SaveTask(TaskModel t) => WriteAtomic(Path.Combine(_tasks, $"{t.Id}.json"), t);
     public void SaveState(EmployeeState s) => WriteAtomic(Path.Combine(_states, $"{s.Id}.json"), s);
+    public void SaveGoal(GoalModel g) => WriteAtomic(Path.Combine(GoalsDir, $"{g.Id}.json"), g);
 
     public IReadOnlyList<TaskModel> LoadTasks() => LoadAll<TaskModel>(_tasks);
     public IReadOnlyList<EmployeeState> LoadStates() => LoadAll<EmployeeState>(_states);
+    public IReadOnlyList<GoalModel> LoadGoals() => LoadAll<GoalModel>(GoalsDir);
+
+    private string GoalsDir
+    {
+        get
+        {
+            var dir = Path.Combine(Path.GetDirectoryName(_tasks)!, "goals");
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+    }
 
     public void AppendEvent(RuntimeEvent evt)
         => File.AppendAllText(_eventsFile, JsonSerializer.Serialize(evt, Json).ReplaceLineEndings("") + Environment.NewLine);

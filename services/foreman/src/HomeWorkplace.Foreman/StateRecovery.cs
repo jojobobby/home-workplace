@@ -3,22 +3,25 @@ namespace HomeWorkplace.Foreman;
 /// <summary>
 /// Rebuilds in-memory state from disk at startup so a restart loses nothing. Tasks that were
 /// mid-run when the process died come back Queued (their run is gone); employees come back
-/// Asleep (they "went home" on the crash) and the DayCycle wakes them on schedule; the event
-/// cursor continues where it left off.
+/// Asleep (they "went home" on the crash) and the DayCycle wakes them on schedule; goals
+/// reload as saved; the event cursor continues where it left off.
 /// </summary>
 public sealed class StateRecovery
 {
     private readonly FileStore _store;
     private readonly TaskBook _tasks;
+    private readonly GoalBook _goals;
     private readonly EmployeeCatalog _employees;
     private readonly EventLog _events;
     private readonly ForemanOptions _options;
     private readonly TimeProvider _clock;
 
-    public StateRecovery(FileStore store, TaskBook tasks, EmployeeCatalog employees, EventLog events, ForemanOptions options, TimeProvider clock)
+    public StateRecovery(FileStore store, TaskBook tasks, GoalBook goals, EmployeeCatalog employees,
+        EventLog events, ForemanOptions options, TimeProvider clock)
     {
         _store = store;
         _tasks = tasks;
+        _goals = goals;
         _employees = employees;
         _events = events;
         _options = options;
@@ -40,6 +43,8 @@ public sealed class StateRecovery
             tasks.Add(t);
         }
         _tasks.SeedFrom(tasks);
+
+        _goals.SeedFrom(_store.LoadGoals());
 
         _events.Seed(_store.LoadEvents(_options.EventsCapacity));
     }

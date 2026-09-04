@@ -17,6 +17,7 @@ builder.Services.AddSingleton<IAgentProvider, ClaudeCliProvider>();
 builder.Services.AddSingleton<IAgentProvider, CodexCliProvider>();
 builder.Services.AddSingleton<RunSupervisor>();
 builder.Services.AddHostedService<DayCycle>();
+builder.Services.AddSingleton<GoalBook>();
 builder.Services.AddSingleton<StateRecovery>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -24,6 +25,7 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 app.Services.GetRequiredService<StateRecovery>().Recover();
+app.MapGoalEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
