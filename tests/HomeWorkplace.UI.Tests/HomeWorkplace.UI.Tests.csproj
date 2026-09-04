@@ -26,4 +26,8 @@
     <ProjectReference Include="..\..\libs\HomeWorkplace.Client\HomeWorkplace.Client.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

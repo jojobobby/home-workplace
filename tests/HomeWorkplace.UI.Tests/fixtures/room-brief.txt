@@ -1,0 +1,10 @@
+# Agency room: task-6309ec5a
+Cursor: 1
+
+## Agents
+- **Foreman** (`foreman`) - goal: _none stated_
+
+## Transcript
+[1] Foreman (`foreman`) 2026-09-04T15:38:40.3600242Z
+Task created: Record a fixture — assigned to ada-coder
+
