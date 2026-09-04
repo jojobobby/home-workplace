@@ -53,6 +53,17 @@ public class GoldenTests
     }
 
     [Fact]
+    public void Moments_show_particles_and_a_shaken_camera_in_their_golden()
+    {
+        var sim = SeededOffice();
+        sim.Apply(new RunFinished("ada-coder", Succeeded: true));    // sparkle at Ada's desk
+        sim.Apply(new RunFinished("mia-manager", Succeeded: false)); // smoke + shake at Mia's
+
+        var frame = _host.Render(sim, new TimeOnly(10, 0), Office, frames: 12);
+        Golden.Check(_host, "office-moments", frame, tolerance: 0.005);
+    }
+
+    [Fact]
     public void Night_is_darker_than_day()
     {
         var day = _host.Render(SeededOffice(), new TimeOnly(10, 0), Office);

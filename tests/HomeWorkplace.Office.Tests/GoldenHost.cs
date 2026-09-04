@@ -8,14 +8,17 @@ namespace HomeWorkplace.Office.Tests;
 /// <summary>
 /// A real MonoGame Game, driven one frame at a time, that renders a simulation at a given
 /// clock and hands the pixels back. One per test run (an xunit collection fixture):
-/// graphics devices are not something to create per test.
+/// graphics devices are not something to create per test. Effects are reset before every
+/// render so no test can leak particles or shake into another's golden.
 /// </summary>
 public sealed class GoldenHost : Game
 {
+    private const float Dt = 1f / 60f;
+
     private readonly GraphicsDeviceManager _graphics;
     private SceneRenderer? _renderer;
     private string _rendererIds = "";
-    private (Simulation Sim, TimeOnly Clock, IReadOnlyList<Shift> Shifts)? _pending;
+    private (Simulation Sim, TimeOnly Clock, IReadOnlyList<Shift> Shifts, int Frames)? _pending;
     private Frame? _result;
 
     public GoldenHost()
@@ -30,9 +33,10 @@ public sealed class GoldenHost : Game
         Window.Title = "Home Workplace — golden host";
     }
 
-    public Frame Render(Simulation sim, TimeOnly clock, IReadOnlyList<Shift> shifts)
+    /// <summary>Render the scene; with <paramref name="frames"/> &gt; 1 the effects advance that many ticks first.</summary>
+    public Frame Render(Simulation sim, TimeOnly clock, IReadOnlyList<Shift> shifts, int frames = 1)
     {
-        _pending = (sim, clock, shifts);
+        _pending = (sim, clock, shifts, Math.Max(1, frames));
         RunOneFrame();
         return _result ?? throw new InvalidOperationException("the frame was not rendered");
     }
@@ -48,7 +52,10 @@ public sealed class GoldenHost : Game
                 _renderer = new SceneRenderer(GraphicsDevice, SpriteGenerator.Generate(p.Sim.World.Desks.Select(d => d.OwnerId)));
                 _rendererIds = ids;
             }
-            _renderer.Draw(p.Sim, new Camera(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight), p.Clock, p.Shifts);
+            _renderer.ResetEffects();
+            var camera = new Camera(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight);
+            for (var i = 0; i < p.Frames; i++)
+                _renderer.Draw(p.Sim, camera, p.Clock, p.Shifts, Dt);
             _result = _renderer.ReadFrame();
             _renderer.Present(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
             _pending = null;

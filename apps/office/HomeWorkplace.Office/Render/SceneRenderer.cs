@@ -8,8 +8,9 @@ namespace HomeWorkplace.Office.Render;
 
 /// <summary>
 /// Draws the office into a 480×272 render target: floor and walls, props, agents y-sorted,
-/// bubbles, then the light map multiplied over everything, then name tags on top so they
-/// stay readable at night. Reads the simulation, never writes it. Point sampling everywhere.
+/// bubbles, the light map multiplied over everything, particles (alpha then additive), and
+/// name tags on top so they stay readable at night. Owns the particle system and the screen
+/// shake, both fed by the simulation's moments. Reads the simulation, never writes it.
 /// </summary>
 public sealed class SceneRenderer : IDisposable
 {
@@ -30,22 +31,56 @@ public sealed class SceneRenderer : IDisposable
     private readonly Manifest _manifest;
     private readonly RenderTarget2D _target;
     private readonly LightMap _lightMap;
+    private readonly int _seed;
+    private ParticleSystem _particles;
+    private ScreenShake _shake;
+    private bool _dustEnabled;
 
-    public SceneRenderer(GraphicsDevice device, AtlasSet atlas)
+    public SceneRenderer(GraphicsDevice device, AtlasSet atlas, int seed = 1)
     {
         _device = device;
+        _seed = seed;
         _batch = new SpriteBatch(device);
         _manifest = atlas.Manifest;
         _atlasTexture = new Texture2D(device, atlas.Atlas.Width, atlas.Atlas.Height);
         _atlasTexture.SetData(atlas.Atlas.Pixels.Select(ToColor).ToArray());
         _target = new RenderTarget2D(device, NativeWidth, NativeHeight, false, SurfaceFormat.Color, DepthFormat.None);
         _lightMap = new LightMap(device, _atlasTexture, atlas.Manifest.Get("light").Frames[0], NativeWidth, NativeHeight);
+        _particles = new ParticleSystem(seed);
+        _shake = new ScreenShake(seed);
     }
 
     public RenderTarget2D Target => _target;
+    public ParticleSystem Particles => _particles;
 
-    public void Draw(Simulation sim, Camera camera, TimeOnly clock, IReadOnlyList<Shift> shifts)
+    /// <summary>Ambient dust drifting over the floor. Off by default so golden frames stay stable.</summary>
+    public bool DustEnabled
     {
+        get => _dustEnabled;
+        set
+        {
+            _dustEnabled = value;
+            _particles.DustEnabled = value;
+            _particles.DustArea = new DustArea(Agent.TileSize, Agent.TileSize,
+                (WorldLayout.Width - 2) * Agent.TileSize, (WorldLayout.Height - 2) * Agent.TileSize);
+        }
+    }
+
+    /// <summary>Fresh particles and shake from the seed — keeps renders independent of what ran before.</summary>
+    public void ResetEffects()
+    {
+        _particles = new ParticleSystem(_seed);
+        _shake = new ScreenShake(_seed);
+        DustEnabled = _dustEnabled;
+    }
+
+    public void Draw(Simulation sim, Camera camera, TimeOnly clock, IReadOnlyList<Shift> shifts, float dt)
+    {
+        _particles.Consume(sim.Moments);
+        _shake.Consume(sim.Moments);
+        _particles.Update(dt);
+        _shake.Update(dt);
+
         // Light map first (it switches render targets), then the scene.
         var (ambient, phase) = Ambient.For(clock, shifts);
         _lightMap.Render(ambient, Lights.For(sim, phase, sim.Elapsed), sim.World.Map);
@@ -54,7 +89,9 @@ public sealed class SceneRenderer : IDisposable
         _device.Clear(ToColor(Rgba.Hex(0x2f3a2a)));
 
         var tl = camera.ViewTopLeft;
-        var transform = Matrix.CreateTranslation(-tl.X, -tl.Y, 0) * Matrix.CreateScale(camera.Zoom, camera.Zoom, 1);
+        var shakeX = MathF.Round(_shake.Offset.X);
+        var shakeY = MathF.Round(_shake.Offset.Y);
+        var transform = Matrix.CreateTranslation(-tl.X + shakeX, -tl.Y + shakeY, 0) * Matrix.CreateScale(camera.Zoom, camera.Zoom, 1);
 
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, transform);
         DrawTiles(sim.World.Map);
@@ -67,6 +104,14 @@ public sealed class SceneRenderer : IDisposable
 
         _batch.Begin(SpriteSortMode.Deferred, Multiply, SamplerState.PointClamp, null, null, null, transform);
         _batch.Draw(_lightMap.Target, XnaVector2.Zero, Color.White);
+        _batch.End();
+
+        var pixel = ToXna(_manifest.Get("pixel").Frames[0]);
+        _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, transform);
+        foreach (var p in _particles.Live) if (!p.Additive) DrawParticle(p, pixel);
+        _batch.End();
+        _batch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.PointClamp, null, null, null, transform);
+        foreach (var p in _particles.Live) if (p.Additive) DrawParticle(p, pixel);
         _batch.End();
 
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, transform);
@@ -159,6 +204,13 @@ public sealed class SceneRenderer : IDisposable
         var (x, y) = TopLeft(agent);
         var name = b.Kind switch { BubbleKind.Question => "bubble_question", BubbleKind.Exclaim => "bubble_exclaim", _ => "bubble_dots" };
         Blit(_manifest.Get(name).Frames[0], x, y - 14);
+    }
+
+    private void DrawParticle(Particle p, Rectangle pixel)
+    {
+        var size = Math.Max(1, (int)MathF.Round(p.Size));
+        var colour = ToColor(p.Colour) * p.Alpha;
+        _batch.Draw(_atlasTexture, new Rectangle((int)MathF.Round(p.Position.X), (int)MathF.Round(p.Position.Y), size, size), pixel, colour);
     }
 
     private void DrawTag(Agent agent)
