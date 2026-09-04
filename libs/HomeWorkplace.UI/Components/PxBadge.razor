@@ -1,0 +1,10 @@
+@namespace HomeWorkplace.UI.Components
+
+@if (Count > 0)
+{
+    <span class="badge">@Count</span>
+}
+
+@code {
+    [Parameter] public int Count { get; set; }
+}

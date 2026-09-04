@@ -1,0 +1,12 @@
+@namespace HomeWorkplace.UI.Components
+
+<section class="px-panel @CssClass">
+    @if (Title is not null) { <header class="px-panel-title">@Title</header> }
+    <div class="px-panel-body">@ChildContent</div>
+</section>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

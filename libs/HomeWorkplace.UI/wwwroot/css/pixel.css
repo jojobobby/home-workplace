@@ -1,0 +1,114 @@
+/* Home Workplace — Terraria-style pixel UI, original. Tokens from the design spec §10. */
+
+@font-face {
+  font-family: "Pixelify Sans";
+  src: url("../fonts/PixelifySans.woff2") format("woff2");
+  font-display: swap;
+}
+
+:root {
+  --frame: #1b1f3a;
+  --panel: #2b3055;
+  --panel-light: #3a4170;
+  --border-dark: #0d0f22;
+  --border-light: #7b85c9;
+  --gold: #f0d78c;
+  --text: #f4f1e8;
+  --text-dim: #b9b7c9;
+  --awake: #7bd88f;
+  --working: #f0d78c;
+  --waiting: #8fb8f0;
+  --asleep: #8c8c9a;
+  --needs-human: #f08c7b;
+  --blocked: #f0a07b;
+  --danger: #f08c7b;
+  --font: "Pixelify Sans", "Silkscreen", "Courier New", monospace;
+}
+
+html, body { background: var(--frame); color: var(--text); font-family: var(--font); font-size: 18px; line-height: 1.3; }
+h1, h2, h3 { font-family: var(--font); color: var(--gold); margin: 0 0 8px; letter-spacing: 1px; }
+h1 { font-size: 28px; } h2 { font-size: 24px; } h3 { font-size: 20px; }
+img, canvas { image-rendering: pixelated; }
+button { font-family: inherit; font-size: inherit; cursor: pointer; }
+input { font-family: inherit; font-size: 16px; }
+
+/* ---- layout ---- */
+.hw { display: grid; grid-template-columns: 200px 1fr; min-height: 100vh; }
+.nav-rail { display: flex; flex-direction: column; gap: 6px; padding: 12px; background: var(--panel);
+  border-right: 2px solid var(--border-dark); box-shadow: inset -2px 0 0 var(--border-light); }
+.brand { color: var(--gold); font-size: 20px; padding: 6px 4px 14px; border-bottom: 2px solid var(--border-dark); margin-bottom: 8px; }
+.nav-link { display: flex; align-items: center; justify-content: space-between; text-align: left; padding: 8px 10px;
+  background: var(--panel-light); color: var(--text); border: 2px solid var(--border-dark); box-shadow: inset 0 2px 0 var(--border-light); }
+.nav-link:hover { background: #4a5290; }
+.nav-link.active { background: var(--gold); color: var(--frame); box-shadow: inset 0 2px 0 #fff3c4; }
+.reconnect { margin-top: auto; padding: 6px 8px; background: var(--danger); color: var(--frame); border: 2px solid var(--border-dark); font-size: 14px; }
+.screen { padding: 16px; overflow: auto; }
+
+/* ---- panel: 2px pixel border, dark outside, light inside, gold top highlight ---- */
+.px-panel { background: var(--panel); border: 2px solid var(--border-dark); box-shadow: inset 2px 2px 0 var(--border-light), inset 0 4px 0 rgba(240, 215, 140, .35);
+  padding: 12px; margin-bottom: 14px; }
+.px-panel-title { color: var(--gold); font-size: 20px; margin: -4px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--border-dark); }
+
+/* ---- buttons ---- */
+.px-btn { padding: 6px 14px; color: var(--text); background: var(--panel-light); border: 2px solid var(--border-dark);
+  box-shadow: inset 0 2px 0 var(--border-light), 0 2px 0 var(--border-dark); }
+.px-btn:active { transform: translateY(2px); box-shadow: inset 0 2px 0 var(--border-light); }
+.px-btn.primary { background: var(--gold); color: var(--frame); box-shadow: inset 0 2px 0 #fff3c4, 0 2px 0 var(--border-dark); }
+.px-btn.danger { background: var(--danger); color: var(--frame); }
+.px-btn.ghost { background: transparent; }
+.px-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ---- slots: your team as item slots, border colour by status ---- */
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, 96px); gap: 10px; }
+.slot { width: 96px; height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: var(--panel-light); color: var(--text); border: 3px solid var(--border-dark); box-shadow: inset 2px 2px 0 var(--border-light); }
+.slot .initial { font-size: 28px; color: var(--gold); }
+.slot .label { font-size: 14px; color: var(--text-dim); }
+.slot.selected { outline: 3px solid var(--gold); outline-offset: -3px; }
+.slot.state-awake { border-color: var(--awake); }
+.slot.state-working { border-color: var(--working); }
+.slot.state-waiting { border-color: var(--waiting); }
+.slot.state-asleep { border-color: var(--asleep); opacity: .75; }
+
+/* ---- bars ---- */
+.px-bar { display: grid; grid-template-columns: 90px 1fr auto; align-items: center; gap: 8px; margin: 6px 0; font-size: 14px; }
+.px-bar .track { height: 14px; background: var(--border-dark); border: 2px solid var(--border-light); }
+.px-bar .fill { height: 100%; background: var(--gold); }
+
+/* ---- badge / toasts ---- */
+.badge { min-width: 22px; padding: 0 6px; text-align: center; background: var(--needs-human); color: var(--frame); border: 2px solid var(--border-dark); font-size: 14px; }
+.toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
+.toast { display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: var(--panel); border: 2px solid var(--border-dark); box-shadow: inset 2px 2px 0 var(--border-light); }
+.toast.warning { border-color: var(--needs-human); }
+.toast.error { border-color: var(--danger); }
+.toast .dismiss { background: none; border: none; color: var(--text-dim); }
+
+/* ---- office: a top-down room; desks are tiles ---- */
+.room { position: relative; padding: 16px; border: 2px solid var(--border-dark);
+  background-color: #2f3a2a;
+  background-image: linear-gradient(45deg, #34412f 25%, transparent 25%, transparent 75%, #34412f 75%),
+                    linear-gradient(45deg, #34412f 25%, transparent 25%, transparent 75%, #34412f 75%);
+  background-size: 32px 32px; background-position: 0 0, 16px 16px; }
+.room canvas { display: block; width: 100%; height: auto; background: transparent; position: absolute; inset: 0; pointer-events: none; }
+.desks { position: relative; display: grid; grid-template-columns: repeat(auto-fill, 140px); gap: 24px; }
+.desk { width: 140px; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  background: #6b4a2b; color: var(--text); border: 3px solid var(--border-dark); box-shadow: inset 2px 2px 0 #9c7248; }
+.desk .avatar { width: 24px; height: 24px; background: var(--text-dim); border: 2px solid var(--border-dark); }
+.desk .name { color: var(--gold); }
+.desk .doing { font-size: 13px; color: var(--text); }
+.desk .doing.dim { color: var(--text-dim); }
+.desk.status-awake .avatar { background: var(--awake); }
+.desk.status-working .avatar { background: var(--working); }
+.desk.status-waiting .avatar { background: var(--waiting); }
+.desk.status-asleep { opacity: .6; } .desk.status-asleep .avatar { background: var(--asleep); }
+
+/* ---- setup cards / detail / misc ---- */
+.setup-header, .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.setup-card { display: grid; grid-template-columns: 160px 1fr auto; gap: 8px 14px; align-items: center; padding: 10px; margin-bottom: 8px;
+  background: var(--panel-light); border: 2px solid var(--border-dark); }
+.setup-card .state.ok { color: var(--awake); } .setup-card .state.warn { color: var(--working); } .setup-card .state.bad { color: var(--needs-human); }
+.setup-card .version, .setup-card .detail, .setup-card .hint { font-size: 14px; color: var(--text-dim); grid-column: 1 / -1; }
+.detail dl { display: grid; grid-template-columns: 140px 1fr; gap: 4px 10px; margin: 0 0 10px; }
+.detail dt { color: var(--text-dim); } .detail dd { margin: 0; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.placeholder { color: var(--text-dim); }

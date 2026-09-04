@@ -1,0 +1,72 @@
+@namespace HomeWorkplace.UI.Screens
+@implements IDisposable
+@inject AppStore Store
+@inject IForemanApi Api
+@inject ShellState Shell
+
+<div class="employees">
+    <PxPanel Title="Your team">
+        <div class="toolbar">
+            <span class="dim">@Store.Employees.Count on the payroll</span>
+            <PxButton CssClass="reload" Variant="ghost" OnClick="Reload">Reload catalog</PxButton>
+        </div>
+        <div class="slot-grid">
+            @foreach (var e in Store.Employees.Values.OrderBy(x => x.Id))
+            {
+                <PxSlot DataId="@e.Id" State="@e.Status.ToString().ToLowerInvariant()" Selected="Shell.SelectedEmployeeId == e.Id"
+                        Tooltip="@($"{e.Name} — {e.Role}")" OnClick="() => Shell.SelectEmployee(e.Id)">
+                    <span class="initial">@e.Name[..1]</span>
+                    <span class="label">@e.Name</span>
+                </PxSlot>
+            }
+        </div>
+    </PxPanel>
+
+    @if (Selected is { } sel)
+    {
+        <PxPanel Title="@($"{sel.Name} — {sel.Role}")" CssClass="detail">
+            <dl>
+                <dt>Status</dt><dd>@sel.Status</dd>
+                <dt>Vendor</dt><dd>@sel.Vendor · @sel.Model</dd>
+                <dt>Runs today</dt><dd>@sel.RunsToday</dd>
+                <dt>Working on</dt><dd>@(sel.CurrentTaskId is { } tid && Store.Tasks.TryGetValue(tid, out var t) ? t.Title : "—")</dd>
+            </dl>
+            <PxBar Label="Energy" Value="sel.Energy" Max="100" Text="@($"{sel.Energy}%")" />
+            <div class="actions">
+                @if (sel.Status == EmployeeStatus.Asleep)
+                {
+                    <input class="until" placeholder="until HH:mm (optional)" @bind="_until" />
+                    <PxButton CssClass="wake" Variant="primary" OnClick="() => Wake(sel.Id)">Wake</PxButton>
+                }
+                else
+                {
+                    <PxButton CssClass="sleep" Variant="ghost" OnClick="() => Api.SleepAsync(sel.Id)">Send home</PxButton>
+                    <PxButton CssClass="reset" Variant="danger" OnClick="() => Api.ResetAsync(sel.Id)">Reset memory</PxButton>
+                }
+            </div>
+            @if (_error is not null) { <p class="error">@_error</p> }
+        </PxPanel>
+    }
+</div>
+
+@code {
+    private string _until = "";
+    private string? _error;
+
+    private EmployeeDto? Selected
+        => Shell.SelectedEmployeeId is { } id && Store.Employees.TryGetValue(id, out var e) ? e : null;
+
+    protected override void OnInitialized() { Store.Changed += OnChanged; Shell.Changed += OnChanged; }
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() { Store.Changed -= OnChanged; Shell.Changed -= OnChanged; }
+
+    private Task Wake(string id) => Guard(() => Api.WakeAsync(id, string.IsNullOrWhiteSpace(_until) ? null : _until.Trim()));
+    private Task Reload() => Guard(() => Api.ReloadEmployeesAsync());
+
+    private async Task Guard(Func<Task> action)
+    {
+        _error = null;
+        try { await action(); }
+        catch (ApiException ex) { _error = ex.Title; }
+    }
+}

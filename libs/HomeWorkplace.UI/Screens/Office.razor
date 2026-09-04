@@ -1,0 +1,42 @@
+@namespace HomeWorkplace.UI.Screens
+@implements IDisposable
+@inject AppStore Store
+@inject ShellState Shell
+
+<div class="office">
+    <PxPanel Title="The office">
+        <div class="room">
+            @* Sub-project 4's renderer draws here; today the desks below are the office. *@
+            <canvas id="office" width="960" height="540"></canvas>
+            <div class="desks">
+                @foreach (var e in Store.Employees.Values.OrderBy(x => x.Id))
+                {
+                    var doing = e.CurrentTaskId is { } tid && Store.Tasks.TryGetValue(tid, out var t) ? t.Title : null;
+                    <button class="desk status-@e.Status.ToString().ToLowerInvariant()" data-id="@e.Id"
+                            title="@($"{e.Name} — {e.Role} ({e.Status})")" @onclick="() => Open(e.Id)">
+                        <span class="avatar"></span>
+                        <span class="name">@e.Name</span>
+                        @if (doing is not null) { <span class="doing">@doing</span> }
+                        else { <span class="doing dim">@Word(e.Status)</span> }
+                    </button>
+                }
+            </div>
+        </div>
+    </PxPanel>
+</div>
+
+@code {
+    protected override void OnInitialized() => Store.Changed += OnChanged;
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Store.Changed -= OnChanged;
+
+    private void Open(string id) { Shell.SelectEmployee(id); Shell.Go(Screen.Employees); }
+
+    private static string Word(EmployeeStatus s) => s switch
+    {
+        EmployeeStatus.Awake => "at their desk",
+        EmployeeStatus.Working => "working",
+        EmployeeStatus.Waiting => "waiting on a teammate",
+        _ => "gone home",
+    };
+}

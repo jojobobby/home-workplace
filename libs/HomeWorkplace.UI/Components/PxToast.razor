@@ -1,0 +1,16 @@
+@namespace HomeWorkplace.UI.Components
+
+<div class="toasts">
+    @foreach (var t in Toasts)
+    {
+        <div class="toast @t.Kind.ToString().ToLowerInvariant()" data-id="@t.Id">
+            <span class="text">@t.Text</span>
+            <button class="dismiss" title="Dismiss" @onclick="() => OnDismiss.InvokeAsync(t.Id)">×</button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<Toast> Toasts { get; set; } = Array.Empty<Toast>();
+    [Parameter] public EventCallback<Guid> OnDismiss { get; set; }
+}

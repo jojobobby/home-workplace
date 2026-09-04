@@ -1,6 +1,50 @@
-@* Root of the Home Workplace UI. Task 5 replaces the body with the nav rail and screens;
-   the MAUI host renders this component and nothing else. *@
-<div id="hw-root">
-    <h1>Home Workplace</h1>
-    <p>Booting your company…</p>
+@implements IDisposable
+@inject AppStore Store
+@inject ShellState Shell
+
+@* The shell: nav rail, the current screen, toasts. The MAUI host renders this and nothing else. *@
+<div id="hw-root" class="hw">
+    <nav class="nav-rail">
+        <div class="brand">Home Workplace</div>
+        @foreach (var s in AllScreens)
+        {
+            <button class="nav-link @(Shell.Current == s ? "active" : "")" data-screen="@s.ToString().ToLowerInvariant()" @onclick="() => Shell.Go(s)">
+                <span>@s</span>
+                @if (s == Screen.Tasks) { <PxBadge Count="Store.HumanNeeded" /> }
+            </button>
+        }
+        @if (!Store.ServicesUp) { <div class="reconnect">connecting…</div> }
+    </nav>
+
+    <main class="screen">
+        @switch (Shell.Current)
+        {
+            case Screen.Office: <Office /> break;
+            case Screen.Employees: <Employees /> break;
+            case Screen.Setup: <Setup /> break;
+            case Screen.Tasks: <div class="tasks placeholder">Tasks — coming next.</div> break;
+            case Screen.Goals: <div class="goals placeholder">Goals — coming next.</div> break;
+            case Screen.Activity: <div class="activity placeholder">Activity — coming next.</div> break;
+        }
+    </main>
+
+    <PxToast Toasts="Store.Toasts" OnDismiss="Store.DismissToast" />
 </div>
+
+@code {
+    private static readonly Screen[] AllScreens = Enum.GetValues<Screen>();
+
+    protected override void OnInitialized()
+    {
+        Store.Changed += OnChanged;
+        Shell.Changed += OnChanged;
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Store.Changed -= OnChanged;
+        Shell.Changed -= OnChanged;
+    }
+}

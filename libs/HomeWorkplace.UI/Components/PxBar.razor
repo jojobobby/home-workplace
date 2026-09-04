@@ -1,0 +1,17 @@
+@namespace HomeWorkplace.UI.Components
+
+<div class="px-bar">
+    <span class="label">@Label</span>
+    <div class="track"><div class="fill" style="width:@Percent%; background:@Color"></div></div>
+    <span class="value">@Text</span>
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public decimal Value { get; set; }
+    [Parameter] public decimal Max { get; set; } = 100;
+    [Parameter] public string Color { get; set; } = "var(--gold)";
+    [Parameter] public string? Text { get; set; }
+
+    private int Percent => Max <= 0 ? 0 : (int)Math.Clamp(Math.Round(Value / Max * 100), 0, 100);
+}

@@ -1,0 +1,12 @@
+@namespace HomeWorkplace.UI.Components
+
+<button class="px-btn @Variant @CssClass" disabled="@Disabled" @onclick="OnClick">@ChildContent</button>
+
+@code {
+    /// <summary>primary | danger | ghost (default styling when empty).</summary>
+    [Parameter] public string Variant { get; set; } = "";
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
