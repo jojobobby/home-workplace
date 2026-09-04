@@ -38,6 +38,13 @@ public sealed class Camera
         }
     }
 
+    /// <summary>Centre the view on a world point (clamped inside the world).</summary>
+    public void Follow(Vector2 world)
+    {
+        _center = world;
+        ClampCenter();
+    }
+
     public void Pan(Vector2 delta)
     {
         _center += delta;

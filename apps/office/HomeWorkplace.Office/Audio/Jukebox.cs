@@ -57,6 +57,16 @@ public sealed class Jukebox
         return played;
     }
 
+    /// <summary>Play a sound now (the player's own footsteps, UI clicks), under the same cooldown and mute rules.</summary>
+    public bool Play(string name, TilePos at)
+    {
+        if (Muted || _volume <= 0f) return false;
+        if (_remaining.TryGetValue(name, out var left) && left > 0f) return false;
+        _remaining[name] = CooldownFor(name);
+        _player.Play(name, _volume, PanFor(at));
+        return true;
+    }
+
     public void Update(float dt)
     {
         foreach (var key in _remaining.Keys.ToList())

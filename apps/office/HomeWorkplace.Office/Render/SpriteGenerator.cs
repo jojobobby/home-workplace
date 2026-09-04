@@ -29,7 +29,7 @@ public static class SpriteGenerator
 
     public static AtlasSet Generate(IEnumerable<string> employeeIds)
     {
-        var ids = employeeIds.Distinct(StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToList();
+        var ids = employeeIds.Append(Player.Id).Distinct(StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToList();
 
         // Every sprite: name, size, frames, fps, painter(frameIndex, painter at origin).
         var sprites = new List<(string Name, int W, int H, int Frames, float Fps, Action<int, Painter> Paint)>
@@ -49,6 +49,7 @@ public static class SpriteGenerator
             ("bubble_exclaim", Tile, Tile, 1, 0, (_, p) => PaintBubble(p, '!')),
             ("bubble_dots", Tile, Tile, 1, 0, (_, p) => PaintBubble(p, '.')),
             ("light", 64, 64, 1, 0, (_, p) => PaintLight(p)),
+            ("e_prompt", 9, 9, 1, 0, (_, p) => PaintPrompt(p)),
         };
         foreach (var id in ids)
         {
@@ -204,6 +205,17 @@ public static class SpriteGenerator
         for (var y = 0; y < PixelFont.GlyphHeight; y++)
         for (var x = 0; x < PixelFont.GlyphWidth; x++)
             if (g[y][x] == '#') p.Px(5 + x, 2 + y, Ink);
+    }
+
+    /// <summary>A small key cap with an E on it: the "talk" prompt over the player's target.</summary>
+    private static void PaintPrompt(Painter p)
+    {
+        p.Rect(0, 0, 9, 9, BorderDark);
+        p.Rect(1, 1, 7, 7, Text);
+        var g = PixelFont.Glyph('E');
+        for (var y = 0; y < PixelFont.GlyphHeight; y++)
+        for (var x = 0; x < PixelFont.GlyphWidth; x++)
+            if (g[y][x] == '#') p.Px(2 + x, 1 + y, Ink);
     }
 
     /// <summary>Radial falloff, white, alpha ∝ (1 − d/r)². Drawn additively by the light map.</summary>

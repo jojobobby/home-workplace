@@ -25,6 +25,7 @@ public sealed class OfficeGame : Game
     private const float Step = 1f / 60f;
     private const float FadeSeconds = 1.2f;
     private const float DragThreshold = 2f;
+    private const float CameraHoldSeconds = 2f;
 
     private readonly AppConfig _config;
     private readonly ServiceSupervisor _supervisor;
@@ -49,6 +50,9 @@ public sealed class OfficeGame : Game
     private string _worldIds = "";
     private IReadOnlyList<Shift> _shifts = new[] { Shifts.Default };
     private Camera _camera = new(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight);
+    private Player? _you;
+    private Interactable? _target;
+    private float _cameraHold;
 
     private float _accumulator;
     private float _fade;
@@ -199,8 +203,24 @@ public sealed class OfficeGame : Game
         _jukebox.Consume(_sim.Moments);
         _jukebox.Update(dt);
 
+        HandlePlayer(dt, keys);
         HandleCamera(dt, keys, mouse);
         HandleMouse(mouse);
+    }
+
+    /// <summary>WASD moves you; the camera follows unless the mouse took it recently.</summary>
+    private void HandlePlayer(float dt, KeyboardState keys)
+    {
+        if (_you is null || _sim is null) return;
+        var dir = new Vector2(
+            (keys.IsKeyDown(Keys.D) ? 1 : 0) - (keys.IsKeyDown(Keys.A) ? 1 : 0),
+            (keys.IsKeyDown(Keys.S) ? 1 : 0) - (keys.IsKeyDown(Keys.W) ? 1 : 0));
+        if (_you.Move(dir, dt)) _jukebox?.Play("footstep", _you.Tile);
+        if (dir != Vector2.Zero) _cameraHold = 0f;
+        _target = _you.Target(_sim);
+
+        _cameraHold = Math.Max(0f, _cameraHold - dt);
+        if (_cameraHold <= 0f) _camera.Follow(_you.Position);
     }
 
     /// <summary>Pull the store's changes into the simulation; rebuild the world when the team changes.</summary>
@@ -222,6 +242,9 @@ public sealed class OfficeGame : Game
             _renderer?.Dispose();
             _renderer = new SceneRenderer(GraphicsDevice, SpriteGenerator.Generate(world.Desks.Select(d => d.OwnerId))) { DustEnabled = true };
             _camera = new Camera(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight);
+            var previous = _you;
+            _you = new Player(world);
+            if (previous is not null) _you.Teleport(previous.Position);
         }
 
         foreach (var command in _feed!.Next(employees, _store.Tasks, _store.RecentEvents))
@@ -231,15 +254,12 @@ public sealed class OfficeGame : Game
     private void HandleCamera(float dt, KeyboardState keys, MouseState mouse)
     {
         var pan = InputMap.PanFor(
-            keys.IsKeyDown(Keys.A) || keys.IsKeyDown(Keys.Left),
-            keys.IsKeyDown(Keys.D) || keys.IsKeyDown(Keys.Right),
-            keys.IsKeyDown(Keys.W) || keys.IsKeyDown(Keys.Up),
-            keys.IsKeyDown(Keys.S) || keys.IsKeyDown(Keys.Down),
+            keys.IsKeyDown(Keys.Left), keys.IsKeyDown(Keys.Right), keys.IsKeyDown(Keys.Up), keys.IsKeyDown(Keys.Down),
             dt, _camera.Zoom);
-        if (pan != Vector2.Zero) _camera.Pan(pan);
+        if (pan != Vector2.Zero) { _camera.Pan(pan); _cameraHold = CameraHoldSeconds; }
 
         var wheel = InputMap.ZoomStep(mouse.ScrollWheelValue - _prevMouse.ScrollWheelValue);
-        if (wheel != 0) _camera.ZoomAt(MouseNative(mouse), wheel);
+        if (wheel != 0) { _camera.ZoomAt(MouseNative(mouse), wheel); _cameraHold = CameraHoldSeconds; }
     }
 
     private void HandleMouse(MouseState mouse)
@@ -259,6 +279,7 @@ public sealed class OfficeGame : Game
             if (_dragging)
             {
                 _camera.Pan(InputMap.DragFor(MouseNative(_prevMouse), native, _camera.Zoom));
+                _cameraHold = CameraHoldSeconds;
             }
         }
         else if (!down && wasDown)
@@ -287,7 +308,7 @@ public sealed class OfficeGame : Game
 
         if (_phase == Phase.Running && _sim is not null && _renderer is not null)
         {
-            _renderer.Draw(_sim, _camera, clock, _shifts, dt);
+            _renderer.Draw(_sim, _camera, clock, _shifts, dt, _you, _target);
             _renderer.Present(w, h, scale);
             if (Pressed(Keyboard.GetState(), Keys.F12)) SaveFrame();
             if (FrameEvery is { } every && _runTime >= _nextAutoFrame) { SaveFrame(); _nextAutoFrame += every; }

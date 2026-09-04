@@ -74,7 +74,8 @@ public sealed class SceneRenderer : IDisposable
         DustEnabled = _dustEnabled;
     }
 
-    public void Draw(Simulation sim, Camera camera, TimeOnly clock, IReadOnlyList<Shift> shifts, float dt)
+    public void Draw(Simulation sim, Camera camera, TimeOnly clock, IReadOnlyList<Shift> shifts, float dt,
+                     Player? player = null, Interactable? target = null)
     {
         _particles.Consume(sim.Moments);
         _shake.Consume(sim.Moments);
@@ -96,10 +97,15 @@ public sealed class SceneRenderer : IDisposable
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, transform);
         DrawTiles(sim.World.Map);
         DrawProps(sim);
-        foreach (var agent in sim.Agents.Values.Where(a => a.Visible).OrderBy(a => a.Position.Y))
-            DrawAgent(agent);
+        var characters = sim.Agents.Values.Where(a => a.Visible)
+            .Select(a => (Y: a.Position.Y, Draw: (Action)(() => DrawAgent(a))))
+            .ToList();
+        if (player is not null)
+            characters.Add((player.Position.Y, () => DrawCharacter(Player.Id, player.Anim, player.AnimTime, player.Position, player.FacingLeft)));
+        foreach (var c in characters.OrderBy(c => c.Y)) c.Draw();
         foreach (var agent in sim.Agents.Values.Where(a => a.Visible))
             DrawBubble(agent);
+        if (target is { } t) DrawPrompt(sim, t);
         _batch.End();
 
         _batch.Begin(SpriteSortMode.Deferred, Multiply, SamplerState.PointClamp, null, null, null, transform);
@@ -193,13 +199,31 @@ public sealed class SceneRenderer : IDisposable
         };
     }
 
-    private void DrawAgent(Agent agent)
+    private void DrawAgent(Agent agent) => DrawCharacter(agent.Id, agent.Anim, agent.AnimTime, agent.Position, agent.FacingLeft);
+
+    private void DrawCharacter(string id, Anim animKind, float animTime, System.Numerics.Vector2 position, bool facingLeft)
     {
-        var anim = _manifest.Agent(agent.Id, agent.Anim);
-        var frame = anim.Fps <= 0 ? 0 : (int)(agent.AnimTime * anim.Fps) % anim.Frames.Count;
-        var (x, y) = TopLeft(agent);
+        var anim = _manifest.Agent(id, animKind);
+        var frame = anim.Fps <= 0 ? 0 : (int)(animTime * anim.Fps) % anim.Frames.Count;
+        var (x, y) = TopLeft(position);
         _batch.Draw(_atlasTexture, new XnaVector2(x, y), ToXna(anim.Frames[frame]), Color.White, 0f, XnaVector2.Zero, 1f,
-            agent.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None, 0f);
+            facingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None, 0f);
+    }
+
+    /// <summary>The E key cap over whatever the player can talk to.</summary>
+    private void DrawPrompt(Simulation sim, Interactable target)
+    {
+        var prompt = _manifest.Get("e_prompt").Frames[0];
+        if (target.Kind == InteractKind.Employee && target.EmployeeId is { } id && sim.Agents.TryGetValue(id, out var agent))
+        {
+            var (x, y) = TopLeft(agent);
+            Blit(prompt, x + Agent.TileSize / 2 - prompt.W / 2, y - (agent.Bubble is null ? 20 : 34));
+        }
+        else if (target.Kind == InteractKind.Whiteboard)
+        {
+            var board = sim.World.Props.First(p => p.Kind == PropKind.Whiteboard);
+            Blit(prompt, (board.Pos.X + board.Width / 2) * Agent.TileSize - prompt.W / 2, (board.Pos.Y + board.Height) * Agent.TileSize + 2);
+        }
     }
 
     private void DrawBubble(Agent agent)
@@ -242,8 +266,10 @@ public sealed class SceneRenderer : IDisposable
         }
     }
 
-    private static (int X, int Y) TopLeft(Agent agent)
-        => ((int)MathF.Round(agent.Position.X - Agent.TileSize / 2f), (int)MathF.Round(agent.Position.Y - Agent.TileSize / 2f));
+    private static (int X, int Y) TopLeft(Agent agent) => TopLeft(agent.Position);
+
+    private static (int X, int Y) TopLeft(System.Numerics.Vector2 position)
+        => ((int)MathF.Round(position.X - Agent.TileSize / 2f), (int)MathF.Round(position.Y - Agent.TileSize / 2f));
 
     private void Blit(SpriteRect sprite, int x, int y)
         => _batch.Draw(_atlasTexture, new XnaVector2(x, y), ToXna(sprite), Color.White);
