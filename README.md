@@ -14,17 +14,29 @@ model API keys.
 
 ```
 home-workplace/
+├── apps/desktop/        # the MAUI Blazor Hybrid desktop app (one exe that boots the company)
+├── libs/
+│   ├── HomeWorkplace.Client/   # typed clients, service supervisor, CLI setup checks
+│   └── HomeWorkplace.UI/       # Razor Class Library: store, event pump, pixel UI, screens
 ├── services/
-│   ├── context-api/   # the shared room service: chat, cursors, long-poll, per-room folder
-│   └── foreman/       # the worker runtime: employees, tasks, runs, sleep/wake, hand-offs
-├── employees/         # folder-defined starter team (ada-coder, rex-reviewer, vfx-artist)
-├── scripts/           # acceptance.ps1
-└── docs/              # specs, plans, agent prompts, trial transcripts
+│   ├── context-api/     # the shared room service: chat, cursors, long-poll, per-room folder
+│   └── foreman/         # the worker runtime: employees, tasks, goals, runs, sleep/wake, hand-offs
+├── employees/           # folder-defined starter team (ada-coder, rex-reviewer, vfx-artist, mia-manager)
+├── tests/               # UI + client tests (each service keeps its own tests beside it)
+├── scripts/             # acceptance.ps1
+└── docs/                # specs, plans, agent prompts, trial transcripts
 ```
 
 ## Run it
 
-Both services are .NET 8. Start them from a normal terminal:
+The whole thing, as a person would: build the desktop app and launch it — it boots both
+services itself. See [apps/desktop/README.md](apps/desktop/README.md).
+
+```bash
+dotnet build apps/desktop/HomeWorkplace.App -f net8.0-windows10.0.19041.0
+```
+
+The services on their own, from a normal terminal:
 
 ```bash
 dotnet run --project services/context-api/src/HomeWorkplace.ContextApi
@@ -34,12 +46,12 @@ dotnet run --project services/context-api/src/HomeWorkplace.ContextApi
 dotnet run --project services/foreman/src/HomeWorkplace.Foreman
 ```
 
-context-api serves `http://localhost:5171`, Foreman `http://localhost:5172`. Then create a
-task and watch it run — see [services/foreman/README.md](services/foreman/README.md) for
-the endpoints, the employee-folder format, and the day cycle, and
-[services/context-api/README.md](services/context-api/README.md) for the room API.
+context-api serves `http://localhost:5171`, Foreman `http://localhost:5172`. See
+[services/foreman/README.md](services/foreman/README.md) for the runtime, goals, and the
+employee-folder format, and [services/context-api/README.md](services/context-api/README.md)
+for the room API.
 
-Run the full test suite:
+Run every test suite:
 
 ```bash
 dotnet test HomeWorkplace.sln
@@ -53,18 +65,18 @@ Built:
 2. **Foreman** — the worker runtime: employees from folders, first-class tasks, returning
    hand-offs, cross-vendor reassignment, sleep/wake with a progress ledger, crash-safe
    restart, real `claude`/`codex` providers, a cursor + long-poll event stream.
-
 3. **Manager loop** — a manager employee decomposes a goal into worker tasks, reacts as
    they settle, re-plans on failure, and completes it inside a dollar budget; a goal that
    would overspend blocks and asks you for a top-up.
+4. **Desktop shell** — one exe that boots the company, verifies the CLIs, and manages
+   employees, tasks, and goals live in a Terraria-styled pixel UI.
 
 Next:
 
-4. **Desktop shell** — log in, manage workers and tasks over the Foreman API.
 5. **Office renderer** — the top-down pixel view, animated from the event stream.
 6. **Notifications** — email, push, AI-voice calls, approvals.
 7. **VM/sandbox layer** — per-employee scoped control of a machine.
-8. **Phone app.**
+8. **Phone app** — the same UI library, built for Android/iOS.
 
 ## Note on subscription use
 
