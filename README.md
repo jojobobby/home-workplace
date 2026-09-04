@@ -54,9 +54,12 @@ Built:
    hand-offs, cross-vendor reassignment, sleep/wake with a progress ledger, crash-safe
    restart, real `claude`/`codex` providers, a cursor + long-poll event stream.
 
+3. **Manager loop** — a manager employee decomposes a goal into worker tasks, reacts as
+   they settle, re-plans on failure, and completes it inside a dollar budget; a goal that
+   would overspend blocks and asks you for a top-up.
+
 Next:
 
-3. **Manager loop** — decompose a goal, assign, verify, iterate to done under a budget.
 4. **Desktop shell** — log in, manage workers and tasks over the Foreman API.
 5. **Office renderer** — the top-down pixel view, animated from the event stream.
 6. **Notifications** — email, push, AI-voice calls, approvals.

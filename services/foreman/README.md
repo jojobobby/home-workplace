@@ -48,6 +48,42 @@ employees/ada-coder/
   own session with the answer. A whole task can be reassigned to another employee, across
   vendors — it is re-seeded from the room transcript and the progress ledger.
 
+## Goals and managers
+
+A **goal** is an objective you hand to a **manager** employee with a dollar budget. The
+manager is an ordinary employee whose runs get a manager prompt — the goal, the team
+roster, every task it has created so far with its status and last result, and the budget
+remaining — and whose structured result is a list of actions Foreman executes:
+
+| action | Foreman does |
+|---|---|
+| `create_task` | creates a worker task linked to the goal and assigns it |
+| `message` | posts a note into a teammate's task room |
+| `wait` | nothing — the manager is re-run when a task it created finishes |
+| `complete` / `fail` | closes the goal |
+
+The manager runs only when something needs a decision: when the goal is created, when a
+worker task settles (done or failed), when you approve a task, or after a top-up — never
+on every event, which keeps runs (and dollars) bounded.
+
+**Budget.** Every run in the goal's service — worker runs and the manager's own — adds
+its cost to `spentUsd`. Cost is the `$` figure the CLI reports (Claude's
+`total_cost_usd`); when a CLI doesn't report one it is computed from tokens × the
+`Foreman:Pricing` table ($ per million tokens, by model, with a `default`). Before any
+run that would exceed the budget, the goal goes **blocked** and emits `human.needed`;
+top it up or cancel it. On a flat subscription these dollars are *notional* — nothing is
+billed — but they are the unit the CLIs surface and the one you have intuition for.
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/goals` | `{title, brief, manager, budgetUsd}` |
+| GET | `/goals`, `/goals/{id}` | List / one goal |
+| POST | `/goals/{id}/topup` | `{addUsd}` — raise the budget; a blocked goal resumes |
+| POST | `/goals/{id}/cancel` | Cancel the goal and its open tasks |
+
+Events: `goal.state`, `goal.decision`, `goal.blocked`. The starter team includes
+`mia-manager`.
+
 ## Endpoints
 
 | Method | Path | Purpose |
