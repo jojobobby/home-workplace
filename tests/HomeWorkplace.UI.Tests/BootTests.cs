@@ -1,6 +1,7 @@
 using Bunit;
 using HomeWorkplace.Client;
 using HomeWorkplace.UI;
+using HomeWorkplace.Live;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HomeWorkplace.UI.Tests;

@@ -1,6 +1,6 @@
 using HomeWorkplace.Client;
 
-namespace HomeWorkplace.UI;
+namespace HomeWorkplace.Live;
 
 /// <summary>
 /// Everything the screens render, in one observable place. Mutated by the event pump on a

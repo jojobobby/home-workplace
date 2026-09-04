@@ -1,5 +1,6 @@
 using HomeWorkplace.Client;
 using HomeWorkplace.UI;
+using HomeWorkplace.Live;
 
 namespace HomeWorkplace.UI.Tests;
 

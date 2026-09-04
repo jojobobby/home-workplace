@@ -1,4 +1,4 @@
-namespace HomeWorkplace.UI;
+namespace HomeWorkplace.Live;
 
 public enum ToastKind { Info, Warning, Error }
 

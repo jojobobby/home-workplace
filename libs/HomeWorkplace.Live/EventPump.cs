@@ -1,7 +1,7 @@
 using System.Text.Json;
 using HomeWorkplace.Client;
 
-namespace HomeWorkplace.UI;
+namespace HomeWorkplace.Live;
 
 /// <summary>
 /// Keeps the store live. Long-polls /events and, for each event, refetches the thing that

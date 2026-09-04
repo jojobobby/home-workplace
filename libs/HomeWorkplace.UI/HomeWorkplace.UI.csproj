@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HomeWorkplace.Client\HomeWorkplace.Client.csproj" />
+    <ProjectReference Include="..\HomeWorkplace.Live\HomeWorkplace.Live.csproj" />
   </ItemGroup>
 
 </Project>

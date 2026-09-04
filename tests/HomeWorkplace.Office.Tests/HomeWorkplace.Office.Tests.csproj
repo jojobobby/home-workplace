@@ -10,7 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="bunit" Version="1.40.0" />
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit" Version="2.5.3" />
@@ -22,13 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\libs\HomeWorkplace.UI\HomeWorkplace.UI.csproj" />
-    <ProjectReference Include="..\..\libs\HomeWorkplace.Client\HomeWorkplace.Client.csproj" />
-    <ProjectReference Include="..\..\libs\HomeWorkplace.Live\HomeWorkplace.Live.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="..\..\apps\office\HomeWorkplace.Office\HomeWorkplace.Office.csproj" />
   </ItemGroup>
 
 </Project>

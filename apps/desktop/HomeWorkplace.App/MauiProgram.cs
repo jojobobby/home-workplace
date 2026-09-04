@@ -1,5 +1,6 @@
 using HomeWorkplace.Client;
 using HomeWorkplace.UI;
+using HomeWorkplace.Live;
 using Microsoft.Extensions.Logging;
 
 namespace HomeWorkplace.App;
