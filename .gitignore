@@ -29,3 +29,6 @@ Thumbs.db
 
 # Foreman runtime state (tasks, goals, employee state, events, workspaces)
 services/**/data/
+
+# Golden-image diff artifacts (a mismatching render, for inspection)
+*.actual.png

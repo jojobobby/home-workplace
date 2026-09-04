@@ -47,7 +47,16 @@ public static class WorldLayout
     public const int DesksPerRow = 6;
     public const int MaxEmployees = 18;
 
-    private static readonly int[] RowYs = { 4, 9, 14 };
+    /// <summary>
+    /// Desk rows spaced evenly in the band between the coffee corner and the door row, so a
+    /// small team sits mid-room rather than under an empty field. Seats are the row below.
+    /// </summary>
+    private static int[] RowYs(int rows) => rows switch
+    {
+        1 => new[] { 9 },
+        2 => new[] { 6, 12 },
+        _ => new[] { 5, 9, 13 },
+    };
 
     public static World Generate(IEnumerable<string> employeeIds)
     {
@@ -62,12 +71,13 @@ public static class WorldLayout
 
         var props = new List<Prop>();
         var desks = new List<Desk>();
+        var rowYs = RowYs(Math.Max(1, (ids.Count + DesksPerRow - 1) / DesksPerRow));
 
         for (var i = 0; i < ids.Count; i++)
         {
             var row = i / DesksPerRow;
             var col = i % DesksPerRow;
-            var pos = new TilePos(3 + col * 4, RowYs[row]);
+            var pos = new TilePos(3 + col * 4, rowYs[row]);
             desks.Add(new Desk(ids[i], pos, pos.Offset(0, 1)));
             props.Add(new Prop(PropKind.Desk, pos, 2, 1, ids[i]));
         }
