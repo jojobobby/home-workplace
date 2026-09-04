@@ -125,6 +125,31 @@ public sealed class CodexCliProvider : IAgentProvider
         finally { try { Directory.Delete(dir, true); } catch { } }
     }
 
+    public async Task<ManagerRunResult> RunManagerAsync(RunSpec spec, CancellationToken ct)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "foreman-runs", spec.RunId);
+        Directory.CreateDirectory(dir);
+        var schemaFile = Path.Combine(dir, "manager-schema.json");
+        var outFile = Path.Combine(dir, "last.txt");
+        File.WriteAllText(schemaFile, ManagerActions.Schema);
+        try
+        {
+            var args = BuildArgs(spec, schemaFile, outFile);
+            var prompt = spec.SystemPrompt + "\n\n" + spec.Prompt;
+            var (_, stdout, _, timedOut) = await ProcessRunner.RunAsync(
+                _options.CodexExecutable, args, spec.Workspace, prompt,
+                new Dictionary<string, string?>(), spec.Timeout, ct);
+            var sessionId = ScrapeSessionId(stdout) ?? spec.SessionId ?? Guid.NewGuid().ToString();
+            if (timedOut)
+                return new ManagerRunResult(
+                    new ManagerDecision($"manager run timed out after {spec.Timeout.TotalMinutes} minutes", new[] { new ManagerAction("wait") }),
+                    new Usage(0, null, null, null, null), sessionId);
+            var last = File.Exists(outFile) ? File.ReadAllText(outFile) : "{}";
+            return new ManagerRunResult(ManagerActions.Parse(last), new Usage(0, null, null, null, null), sessionId);
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
     private static string? ScrapeSessionId(string jsonl)
     {
         foreach (var line in jsonl.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))

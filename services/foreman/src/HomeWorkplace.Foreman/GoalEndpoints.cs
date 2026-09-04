@@ -4,7 +4,7 @@ public static class GoalEndpoints
 {
     public static WebApplication MapGoalEndpoints(this WebApplication app)
     {
-        app.MapPost("/goals", async (CreateGoalRequest req, GoalBook goals, EmployeeCatalog cat, CancellationToken ct) =>
+        app.MapPost("/goals", async (CreateGoalRequest req, GoalBook goals, EmployeeCatalog cat, RunSupervisor sup, CancellationToken ct) =>
         {
             var errors = new Dictionary<string, string[]>();
             if (string.IsNullOrWhiteSpace(req.Title)) errors["title"] = new[] { "title is required." };
@@ -16,6 +16,7 @@ public static class GoalEndpoints
                 return Results.Problem(detail: $"Unknown employee '{req.Manager}'.", statusCode: StatusCodes.Status400BadRequest);
 
             var goal = await goals.CreateAsync(req, ct);
+            _ = sup.RunManagerAsync(goal.Id);   // first manager run; retried by PumpGoals if the manager is busy/asleep
             return Results.Created($"/goals/{goal.Id}", goal);
         });
 

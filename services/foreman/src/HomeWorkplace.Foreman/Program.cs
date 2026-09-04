@@ -18,6 +18,7 @@ builder.Services.AddSingleton<IAgentProvider, CodexCliProvider>();
 builder.Services.AddSingleton<RunSupervisor>();
 builder.Services.AddHostedService<DayCycle>();
 builder.Services.AddSingleton<GoalBook>();
+builder.Services.AddSingleton<ManagerComposer>();
 builder.Services.AddSingleton<StateRecovery>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

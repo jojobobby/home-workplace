@@ -39,3 +39,6 @@ public sealed record ManagerAction(
     string? Reason = null);
 
 public sealed record ManagerDecision(string Summary, IReadOnlyList<ManagerAction> Actions);
+
+/// <summary>What a manager run yields: the decision, what it cost, and the session to resume.</summary>
+public sealed record ManagerRunResult(ManagerDecision Decision, Usage Usage, string SessionId);

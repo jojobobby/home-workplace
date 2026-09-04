@@ -4,12 +4,15 @@ namespace HomeWorkplace.Foreman;
 /// Drives runs: at most one live run per employee. Pump() starts eligible queued tasks;
 /// each run applies its result to the task, frees or parks the employee, then pumps again.
 /// </summary>
-public sealed class RunSupervisor
+public sealed partial class RunSupervisor
 {
     private readonly TaskBook _tasks;
+    private readonly GoalBook _goals;
     private readonly EmployeeCatalog _employees;
     private readonly PersonaComposer _composer;
+    private readonly ManagerComposer _managerComposer;
     private readonly IEnumerable<IAgentProvider> _providers;
+    private readonly IContextApiClient _rooms;
     private readonly EventLog _events;
     private readonly ForemanOptions _options;
     private readonly TimeProvider _clock;
@@ -20,13 +23,17 @@ public sealed class RunSupervisor
     /// <summary>Discard the result of an in-flight run (used by task cancel/reassign).</summary>
     public void MarkCancelled(string runId) => _cancelled[runId] = 1;
 
-    public RunSupervisor(TaskBook tasks, EmployeeCatalog employees, PersonaComposer composer,
-        IEnumerable<IAgentProvider> providers, EventLog events, ForemanOptions options, TimeProvider clock)
+    public RunSupervisor(TaskBook tasks, GoalBook goals, EmployeeCatalog employees, PersonaComposer composer,
+        ManagerComposer managerComposer, IEnumerable<IAgentProvider> providers, IContextApiClient rooms,
+        EventLog events, ForemanOptions options, TimeProvider clock)
     {
         _tasks = tasks;
+        _goals = goals;
         _employees = employees;
         _composer = composer;
+        _managerComposer = managerComposer;
         _providers = providers;
+        _rooms = rooms;
         _events = events;
         _options = options;
         _clock = clock;

@@ -8,8 +8,22 @@ public sealed class FakeAgentProvider : IAgentProvider
     private readonly ConcurrentQueue<Func<RunSpec, RunResult>> _scripted = new();
     private readonly ConcurrentQueue<WrapUpResult> _wrapUps = new();
     public List<RunSpec> Specs { get; } = new();
+    public List<RunSpec> ManagerSpecs { get; } = new();
+    private readonly ConcurrentQueue<(ManagerDecision Decision, decimal CostUsd)> _decisions = new();
 
     public bool Handles(Vendor vendor) => true;
+
+    public void EnqueueDecision(ManagerDecision decision, decimal costUsd = 0m) => _decisions.Enqueue((decision, costUsd));
+
+    public Task<ManagerRunResult> RunManagerAsync(RunSpec spec, CancellationToken ct)
+    {
+        lock (ManagerSpecs) ManagerSpecs.Add(spec);
+        var (decision, cost) = _decisions.TryDequeue(out var x)
+            ? x
+            : (new ManagerDecision("nothing to do", new[] { new ManagerAction("wait") }), 0m);
+        var usage = new Usage(1, null, null, cost > 0m ? cost : null, null);
+        return Task.FromResult(new ManagerRunResult(decision, usage, spec.SessionId ?? Guid.NewGuid().ToString()));
+    }
 
     public void Enqueue(Func<RunSpec, RunResult> f) => _scripted.Enqueue(f);
     public void EnqueueDone(string summary = "done") => Enqueue(s => Done(s, summary));

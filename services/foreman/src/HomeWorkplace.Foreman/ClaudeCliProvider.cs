@@ -116,6 +116,36 @@ public sealed class ClaudeCliProvider : IAgentProvider
         finally { TryDelete(tmp); }
     }
 
+    public async Task<ManagerRunResult> RunManagerAsync(RunSpec spec, CancellationToken ct)
+    {
+        var tmp = CreateTemp(spec, out var systemFile);
+        try
+        {
+            var args = BuildArgs(spec, ManagerActions.Schema, systemFile);
+            var (_, stdout, _, timedOut) = await ProcessRunner.RunAsync(
+                _options.ClaudeExecutable, args, spec.Workspace, spec.Prompt,
+                new Dictionary<string, string?>(), spec.Timeout, ct);
+            if (timedOut)
+                return new ManagerRunResult(
+                    new ManagerDecision($"manager run timed out after {spec.Timeout.TotalMinutes} minutes", new[] { new ManagerAction("wait") }),
+                    new Usage(0, null, null, null, null), spec.SessionId ?? "");
+            try
+            {
+                using var doc = JsonDocument.Parse(stdout);
+                var root = doc.RootElement;
+                var sessionId = root.TryGetProperty("session_id", out var sid) ? sid.GetString() ?? spec.SessionId ?? "" : spec.SessionId ?? "";
+                var resultText = root.TryGetProperty("result", out var r) ? r.GetString() ?? "{}" : "{}";
+                return new ManagerRunResult(ManagerActions.Parse(resultText), ParseUsage(root), sessionId);
+            }
+            catch (Exception ex)
+            {
+                return new ManagerRunResult(ManagerActions.Parse($"<<{ex.Message}>> {Tail(stdout)}"),
+                    new Usage(0, null, null, null, null), spec.SessionId ?? "");
+            }
+        }
+        finally { TryDelete(tmp); }
+    }
+
     private static Usage ParseUsage(JsonElement root)
     {
         long dur = root.TryGetProperty("duration_ms", out var d) && d.TryGetInt64(out var dv) ? dv : 0;

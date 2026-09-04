@@ -27,7 +27,7 @@ public sealed class TaskBook
         _employees = employees;
     }
 
-    public async Task<TaskModel> CreateAsync(CreateTaskRequest req, CancellationToken ct)
+    public async Task<TaskModel> CreateAsync(CreateTaskRequest req, CancellationToken ct, string? goalId = null)
     {
         var now = _clock.GetUtcNow();
         var id = Guid.NewGuid().ToString("N")[..8];
@@ -39,6 +39,7 @@ public sealed class TaskBook
             Assignee = req.Assignee!.Trim(),
             Status = TaskState.Queued,
             RequiresApproval = req.RequiresApproval,
+            GoalId = goalId,
             Room = $"task-{id}",
             Workspace = Path.Combine(_options.DataPath, "workspaces", id),
             CreatedAt = now,
