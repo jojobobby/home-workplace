@@ -70,10 +70,16 @@ Built:
    would overspend blocks and asks you for a top-up.
 4. **Desktop shell** — one exe that boots the company, verifies the CLIs, and manages
    employees, tasks, and goals live in a Terraria-styled pixel UI.
+5. **Office game (4a)** — a MonoGame top-down pixel office animated from the event
+   stream: A* walking, typing, coffee runs, hand-off chats, dynamic lights and stencil
+   shadows on a day/night schedule, particles, screen shake, synthesized sound effects.
+   See `apps/office/README.md`.
 
 Next:
 
-5. **Office renderer** — the top-down pixel view, animated from the event stream.
+5b. **In-game management UI** — assign work, wake/sleep, budgets, inside the office.
+5c. **Art and sound pipeline** — real sprite sheets (via the vfx-artist employee) and music
+   replacing the procedural placeholders.
 6. **Notifications** — email, push, AI-voice calls, approvals.
 7. **VM/sandbox layer** — per-employee scoped control of a machine.
 8. **Phone app** — the same UI library, built for Android/iOS.

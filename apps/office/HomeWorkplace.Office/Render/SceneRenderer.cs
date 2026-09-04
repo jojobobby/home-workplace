@@ -123,9 +123,13 @@ public sealed class SceneRenderer : IDisposable
     }
 
     /// <summary>Blit the native frame to the back buffer at the largest integer scale that fits, letterboxed.</summary>
-    public void Present(int windowWidth, int windowHeight)
+    public void Present(int windowWidth, int windowHeight) => Present(windowWidth, windowHeight, FitScale(windowWidth, windowHeight));
+
+    public static int FitScale(int windowWidth, int windowHeight) => Math.Max(1, Math.Min(windowWidth / NativeWidth, windowHeight / NativeHeight));
+
+    public void Present(int windowWidth, int windowHeight, int scale)
     {
-        var scale = Math.Max(1, Math.Min(windowWidth / NativeWidth, windowHeight / NativeHeight));
+        scale = Math.Max(1, scale);
         var w = NativeWidth * scale;
         var h = NativeHeight * scale;
         var dest = new Rectangle((windowWidth - w) / 2, (windowHeight - h) / 2, w, h);

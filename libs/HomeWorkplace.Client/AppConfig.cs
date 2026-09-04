@@ -43,3 +43,27 @@ public sealed class OfficeConfig
     public int Scale { get; set; }
     public bool ShowDebug { get; set; }
 }
+
+public static class AppConfigDirectories
+{
+    /// <summary>
+    /// In development the services run from the repo with `dotnet run`, so a command with no
+    /// working directory is anchored at the repo root, found by walking up from <paramref name="start"/>
+    /// until HomeWorkplace.sln appears. A release build ships explicit directories instead.
+    /// </summary>
+    public static void ResolveWorkingDirectories(AppConfig config, string start)
+    {
+        if (config.ContextApi.WorkingDirectory is not null && config.Foreman.WorkingDirectory is not null) return;
+        var root = FindRepoRoot(start);
+        if (root is null) return;
+        config.ContextApi = config.ContextApi with { WorkingDirectory = config.ContextApi.WorkingDirectory ?? root };
+        config.Foreman = config.Foreman with { WorkingDirectory = config.Foreman.WorkingDirectory ?? root };
+    }
+
+    public static string? FindRepoRoot(string start)
+    {
+        for (var dir = new DirectoryInfo(start); dir is not null; dir = dir.Parent)
+            if (File.Exists(Path.Combine(dir.FullName, "HomeWorkplace.sln"))) return dir.FullName;
+        return null;
+    }
+}
