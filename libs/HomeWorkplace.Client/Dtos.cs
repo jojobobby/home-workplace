@@ -19,6 +19,9 @@ public sealed record EmployeeDto
     public string? CurrentTaskId { get; init; }
     public int RunsToday { get; init; }
     public int Energy { get; init; }
+    /// <summary>Shift as "HH:mm"; null from an older service.</summary>
+    public string? Wake { get; init; }
+    public string? Sleep { get; init; }
 }
 
 public sealed record UsageDto(long DurationMs, long? InputTokens, long? OutputTokens, decimal? CostUsd, int? Turns);

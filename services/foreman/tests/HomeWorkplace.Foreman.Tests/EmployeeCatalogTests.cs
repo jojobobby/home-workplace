@@ -34,6 +34,8 @@ public class EmployeeCatalogTests
         Assert.Equal(Vendor.Claude, ada.Vendor);
         Assert.Equal(EmployeeStatus.Asleep, ada.Status);
         Assert.Equal(100, ada.Energy);
+        Assert.Equal("09:00", ada.Wake);     // the office game lights the room by the team's shifts
+        Assert.Equal("20:00", ada.Sleep);
     }
 
     [Fact]

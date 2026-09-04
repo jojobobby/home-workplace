@@ -12,6 +12,7 @@ namespace HomeWorkplace.Office.Tests;
 [Collection("gpu")]
 public class GoldenTests
 {
+    private static readonly Shift[] Office = { new(new TimeOnly(9, 0), new TimeOnly(20, 0)) };
     private readonly GoldenHost _host;
 
     public GoldenTests(GoldenHost host) => _host = host;
@@ -31,7 +32,7 @@ public class GoldenTests
     [Fact]
     public void The_office_renders_at_the_native_resolution()
     {
-        var frame = _host.Render(SeededOffice());
+        var frame = _host.Render(SeededOffice(), new TimeOnly(10, 0), Office);
         Assert.Equal(480, frame.Width);
         Assert.Equal(272, frame.Height);
         Assert.True(frame.Pixels.Count(p => p.A > 0) > 480 * 272 / 2, "most of the frame should be drawn");
@@ -40,7 +41,23 @@ public class GoldenTests
     [Fact]
     public void The_office_at_ten_matches_its_golden()
     {
-        var frame = _host.Render(SeededOffice());
+        var frame = _host.Render(SeededOffice(), new TimeOnly(10, 0), Office);
         Golden.Check(_host, "office-10am", frame, tolerance: 0.005);
+    }
+
+    [Fact]
+    public void The_office_at_night_matches_its_golden()
+    {
+        var frame = _host.Render(SeededOffice(), new TimeOnly(20, 30), Office);
+        Golden.Check(_host, "office-2030", frame, tolerance: 0.005);
+    }
+
+    [Fact]
+    public void Night_is_darker_than_day()
+    {
+        var day = _host.Render(SeededOffice(), new TimeOnly(10, 0), Office);
+        var night = _host.Render(SeededOffice(), new TimeOnly(23, 0), Office);
+        double Brightness(Frame f) => f.Pixels.Average(p => (p.R + p.G + p.B) / 3.0);
+        Assert.True(Brightness(night) < Brightness(day) * 0.6, "night should be well under day brightness");
     }
 }

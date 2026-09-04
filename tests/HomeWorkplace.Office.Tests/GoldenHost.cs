@@ -6,16 +6,16 @@ using Microsoft.Xna.Framework.Graphics;
 namespace HomeWorkplace.Office.Tests;
 
 /// <summary>
-/// A real MonoGame Game, driven one frame at a time, that renders a simulation and hands the
-/// pixels back. One per test run (an xunit collection fixture): graphics devices are not
-/// something to create per test.
+/// A real MonoGame Game, driven one frame at a time, that renders a simulation at a given
+/// clock and hands the pixels back. One per test run (an xunit collection fixture):
+/// graphics devices are not something to create per test.
 /// </summary>
 public sealed class GoldenHost : Game
 {
     private readonly GraphicsDeviceManager _graphics;
     private SceneRenderer? _renderer;
     private string _rendererIds = "";
-    private Simulation? _pending;
+    private (Simulation Sim, TimeOnly Clock, IReadOnlyList<Shift> Shifts)? _pending;
     private Frame? _result;
 
     public GoldenHost()
@@ -24,30 +24,31 @@ public sealed class GoldenHost : Game
         {
             PreferredBackBufferWidth = SceneRenderer.NativeWidth,
             PreferredBackBufferHeight = SceneRenderer.NativeHeight,
+            PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8,
         };
         IsMouseVisible = false;
         Window.Title = "Home Workplace — golden host";
     }
 
-    public Frame Render(Simulation sim)
+    public Frame Render(Simulation sim, TimeOnly clock, IReadOnlyList<Shift> shifts)
     {
-        _pending = sim;
+        _pending = (sim, clock, shifts);
         RunOneFrame();
         return _result ?? throw new InvalidOperationException("the frame was not rendered");
     }
 
     protected override void Draw(GameTime gameTime)
     {
-        if (_pending is { } sim)
+        if (_pending is { } p)
         {
-            var ids = string.Join(",", sim.World.Desks.Select(d => d.OwnerId));
+            var ids = string.Join(",", p.Sim.World.Desks.Select(d => d.OwnerId));
             if (_renderer is null || ids != _rendererIds)
             {
                 _renderer?.Dispose();
-                _renderer = new SceneRenderer(GraphicsDevice, SpriteGenerator.Generate(sim.World.Desks.Select(d => d.OwnerId)));
+                _renderer = new SceneRenderer(GraphicsDevice, SpriteGenerator.Generate(p.Sim.World.Desks.Select(d => d.OwnerId)));
                 _rendererIds = ids;
             }
-            _renderer.Draw(sim, new Camera(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight));
+            _renderer.Draw(p.Sim, new Camera(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight), p.Clock, p.Shifts);
             _result = _renderer.ReadFrame();
             _renderer.Present(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
             _pending = null;

@@ -141,6 +141,8 @@ public sealed class EmployeeCatalog
         CurrentTaskId = s.CurrentTaskId,
         RunsToday = s.RunsToday,
         Energy = Math.Max(0, 100 - 10 * s.RunsToday),
+        Wake = d.Schedule.Wake,
+        Sleep = d.Schedule.Sleep,
     };
 
     private static string ReadSibling(string dir, string name)

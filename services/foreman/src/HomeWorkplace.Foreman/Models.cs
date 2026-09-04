@@ -69,6 +69,9 @@ public sealed record EmployeeView
     public string? CurrentTaskId { get; init; }
     public required int RunsToday { get; init; }
     public required int Energy { get; init; }
+    /// <summary>Shift, local "HH:mm" — the office game lights the room by the team's hours.</summary>
+    public required string Wake { get; init; }
+    public required string Sleep { get; init; }
 }
 
 public enum TaskState { Queued, Running, Waiting, NeedsHuman, Done, Failed, Cancelled }
