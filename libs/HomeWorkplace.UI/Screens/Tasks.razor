@@ -1,0 +1,156 @@
+@namespace HomeWorkplace.UI.Screens
+@implements IDisposable
+@inject AppStore Store
+@inject IForemanApi Api
+@inject IContextApi Ctx
+@inject ShellState Shell
+
+<div class="tasks">
+    <PxPanel Title="Tasks">
+        <div class="toolbar">
+            <select class="status-filter" value="@(Shell.TaskFilter?.ToString() ?? "")" @onchange="OnFilter">
+                <option value="">All</option>
+                @foreach (var s in Enum.GetValues<TaskState>()) { <option value="@s">@s</option> }
+            </select>
+            <PxButton CssClass="new-task" Variant="primary" OnClick="() => _creating = !_creating">New task</PxButton>
+        </div>
+
+        @if (_creating)
+        {
+            <form class="create-task" @onsubmit:preventDefault>
+                <input class="title" placeholder="Title" @bind="_title" />
+                <textarea class="brief" placeholder="What needs doing, and where to put the result" @bind="_brief"></textarea>
+                <select class="assignee" @bind="_assignee">
+                    <option value="">Assign to…</option>
+                    @foreach (var e in Store.Employees.Values.OrderBy(x => x.Name)) { <option value="@e.Id">@e.Name — @e.Role</option> }
+                </select>
+                <label><input type="checkbox" @bind="_requiresApproval" /> needs my approval before it's done</label>
+                <PxButton CssClass="create" Variant="primary" OnClick="CreateAsync" Disabled="@(string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_brief) || string.IsNullOrEmpty(_assignee))">Create</PxButton>
+            </form>
+        }
+
+        <div class="task-list">
+            @foreach (var t in Visible)
+            {
+                <button type="button" class="task-row status-@t.Status.ToString().ToLowerInvariant() @(Shell.SelectedTaskId == t.Id ? "selected" : "")" data-id="@t.Id" @onclick="() => Select(t.Id)">
+                    <span class="title">@t.Title</span>
+                    <span class="assignee">@t.Assignee</span>
+                    <span class="status">@t.Status</span>
+                </button>
+            }
+            @if (!Visible.Any()) { <p class="dim">No tasks@(Shell.TaskFilter is null ? "" : " with that status").</p> }
+        </div>
+    </PxPanel>
+
+    @if (Selected is { } t)
+    {
+        <PxPanel Title="@t.Title" CssClass="detail">
+            <p class="brief">@t.Brief</p>
+            <dl>
+                <dt>Status</dt><dd>@t.Status@(t.AwaitingApproval ? " — awaiting your approval" : "")</dd>
+                <dt>Assignee</dt><dd>@t.Assignee</dd>
+                <dt>Room</dt><dd>@t.Room</dd>
+                @if (t.GoalId is not null) { <dt>Goal</dt><dd>@t.GoalId</dd> }
+            </dl>
+            @if (t.PendingQuestion is not null) { <p class="question">Asked: @t.PendingQuestion</p> }
+
+            <div class="actions">
+                @if (t.Status == TaskState.NeedsHuman && t.AwaitingApproval)
+                {
+                    <PxButton CssClass="approve" Variant="primary" OnClick="() => Do(Api.ApproveAsync(t.Id))">Approve</PxButton>
+                }
+                @if (t.Status == TaskState.NeedsHuman && !t.AwaitingApproval)
+                {
+                    <textarea class="answer" placeholder="Your answer" @bind="_answer"></textarea>
+                    <PxButton CssClass="answer" Variant="primary" OnClick="() => Do(Api.AnswerAsync(t.Id, _answer))" Disabled="@string.IsNullOrWhiteSpace(_answer)">Answer</PxButton>
+                }
+                @if (t.Status == TaskState.Failed)
+                {
+                    <PxButton CssClass="retry" Variant="primary" OnClick="() => Do(Api.RetryAsync(t.Id))">Retry</PxButton>
+                }
+                @if (t.Status is not (TaskState.Done or TaskState.Cancelled))
+                {
+                    <select class="reassign-to" @bind="_reassignTo">
+                        <option value="">Reassign to…</option>
+                        @foreach (var e in Store.Employees.Values.Where(e => e.Id != t.Assignee).OrderBy(x => x.Name)) { <option value="@e.Id">@e.Name</option> }
+                    </select>
+                    <PxButton CssClass="reassign" Variant="ghost" OnClick="() => Do(Api.ReassignAsync(t.Id, _reassignTo))" Disabled="@string.IsNullOrEmpty(_reassignTo)">Reassign</PxButton>
+                    <PxButton CssClass="cancel" Variant="danger" OnClick="() => Do(Api.CancelTaskAsync(t.Id))">Cancel</PxButton>
+                }
+            </div>
+            @if (_error is not null) { <p class="error">@_error</p> }
+
+            @if (t.Progress.Count > 0)
+            {
+                <h3>Progress ledger</h3>
+                @foreach (var p in t.Progress)
+                {
+                    <div class="progress-entry">
+                        <strong>@p.Date by @p.Author</strong>
+                        <ul>@foreach (var d in p.Done) { <li>@d</li> }</ul>
+                        @if (p.Next.Count > 0) { <em>Next:</em> <ul>@foreach (var n in p.Next) { <li>@n</li> }</ul> }
+                    </div>
+                }
+            }
+            @if (t.Runs.Count > 0)
+            {
+                <h3>Runs</h3>
+                @foreach (var r in t.Runs)
+                {
+                    <div class="run"><span>@r.Employee</span> <span>@r.Status</span> <span class="dim">@r.ResultSummary</span></div>
+                }
+            }
+
+            <h3>Room</h3>
+            <pre class="brief-room">@(_roomBrief ?? "Loading…")</pre>
+        </PxPanel>
+    }
+</div>
+
+@code {
+    private bool _creating;
+    private string _title = "", _brief = "", _assignee = "", _answer = "", _reassignTo = "";
+    private bool _requiresApproval;
+    private string? _error, _roomBrief, _briefFor;
+
+    private IEnumerable<TaskDto> Visible
+        => Store.Tasks.Values
+            .Where(t => Shell.TaskFilter is not { } f || t.Status == f)
+            .OrderByDescending(t => t.CreatedAt);
+
+    private TaskDto? Selected
+        => Shell.SelectedTaskId is { } id && Store.Tasks.TryGetValue(id, out var t) ? t : null;
+
+    protected override void OnInitialized() { Store.Changed += OnChanged; Shell.Changed += OnChanged; }
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() { Store.Changed -= OnChanged; Shell.Changed -= OnChanged; }
+
+    private void OnFilter(ChangeEventArgs e)
+        => Shell.SetTaskFilter(Enum.TryParse<TaskState>(e.Value?.ToString(), out var s) ? s : null);
+
+    private async Task Select(string id)
+    {
+        Shell.SelectTask(id);
+        _answer = ""; _reassignTo = ""; _error = null;
+        if (Store.Tasks.TryGetValue(id, out var t) && _briefFor != t.Room)
+        {
+            _briefFor = t.Room; _roomBrief = null;
+            try { _roomBrief = await Ctx.GetBriefAsync(t.Room); }
+            catch (Exception ex) { _roomBrief = $"(room unavailable: {ex.Message})"; }
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        await Do(Api.CreateTaskAsync(new CreateTaskRequest(_title.Trim(), _brief.Trim(), _assignee, _requiresApproval)));
+        if (_error is null) { _creating = false; _title = _brief = _assignee = ""; _requiresApproval = false; }
+    }
+
+    private async Task Do(Task action)
+    {
+        _error = null;
+        try { await action; }
+        catch (ApiException ex) { _error = ex.Title; }
+    }
+}

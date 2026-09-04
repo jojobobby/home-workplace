@@ -15,6 +15,7 @@ public class ShellTests : TestContext
         Services.AddSingleton(store);
         Services.AddSingleton(shell);
         Services.AddSingleton<IForemanApi>(api);
+        Services.AddSingleton<IContextApi>(new FakeContextApi());   // the Tasks screen needs it once the badge jumps there
         Services.AddSingleton(new CliSetupChecker(new FakeProcessRunner()));
         Services.AddSingleton<ITerminalLauncher>(new FakeTerminalLauncher());
         return (api, store, shell);
@@ -41,6 +42,19 @@ public class ShellTests : TestContext
         store.SetGoal(FakeForemanApi.Goal("g1", GoalState.Blocked));
 
         cut.WaitForAssertion(() => Assert.Equal("2", cut.Find("nav .badge").TextContent.Trim()));
+    }
+
+    [Fact]
+    public void Clicking_the_badge_jumps_to_tasks_filtered_to_what_needs_you()
+    {
+        var (_, store, shell) = Wire();
+        store.SetTask(FakeForemanApi.Task("t1", TaskState.NeedsHuman));
+        var cut = RenderComponent<App>();
+
+        cut.Find("nav .badge").Click();
+
+        Assert.Equal(Screen.Tasks, shell.Current);
+        Assert.Equal(TaskState.NeedsHuman, shell.TaskFilter);
     }
 
     [Fact]

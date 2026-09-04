@@ -1,10 +1,12 @@
 @namespace HomeWorkplace.UI.Components
 
+@* A span, not a button: it lives inside the nav-link button, and buttons cannot nest. *@
 @if (Count > 0)
 {
-    <span class="badge">@Count</span>
+    <span class="badge" role="button" tabindex="0" title="Things that need you" @onclick="OnClick" @onclick:stopPropagation>@Count</span>
 }
 
 @code {
     [Parameter] public int Count { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
 }

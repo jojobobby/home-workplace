@@ -1,0 +1,114 @@
+@namespace HomeWorkplace.UI.Screens
+@implements IDisposable
+@inject AppStore Store
+@inject IForemanApi Api
+@inject ShellState Shell
+
+<div class="goals">
+    <PxPanel Title="Goals">
+        <div class="toolbar">
+            <span class="dim">@(Shell.GoalFilter is { } f ? $"Showing {f}" : $"{Store.Goals.Count} goals")</span>
+            <PxButton CssClass="new-goal" Variant="primary" OnClick="() => _creating = !_creating">New goal</PxButton>
+        </div>
+
+        @if (_creating)
+        {
+            <form class="create-goal" @onsubmit:preventDefault>
+                <input class="title" placeholder="Title" @bind="_title" />
+                <textarea class="brief" placeholder="What done looks like" @bind="_brief"></textarea>
+                <select class="manager" @bind="_manager">
+                    <option value="">Manager…</option>
+                    @foreach (var e in Store.Employees.Values.OrderBy(x => x.Name)) { <option value="@e.Id">@e.Name — @e.Role</option> }
+                </select>
+                <label>Budget $ <input class="budget" type="number" step="0.5" min="0.5" @bind="_budget" /></label>
+                <PxButton CssClass="create" Variant="primary" OnClick="CreateAsync" Disabled="@(string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_brief) || string.IsNullOrEmpty(_manager) || _budget <= 0)">Create</PxButton>
+            </form>
+        }
+
+        <div class="goal-list">
+            @foreach (var g in Visible)
+            {
+                <button type="button" class="goal-row status-@g.Status.ToString().ToLowerInvariant() @(Shell.SelectedGoalId == g.Id ? "selected" : "")" data-id="@g.Id" @onclick="() => Select(g.Id)">
+                    <span class="title">@g.Title</span>
+                    <span class="manager">@g.Manager</span>
+                    <span class="spend">$@g.SpentUsd.ToString("0.00") / $@g.BudgetUsd.ToString("0.00")</span>
+                    <span class="status">@g.Status</span>
+                </button>
+            }
+            @if (!Visible.Any()) { <p class="dim">No goals yet. Hand one to a manager.</p> }
+        </div>
+    </PxPanel>
+
+    @if (Selected is { } g)
+    {
+        <PxPanel Title="@g.Title" CssClass="detail">
+            <p class="brief">@g.Brief</p>
+            <dl>
+                <dt>Status</dt><dd>@g.Status</dd>
+                <dt>Manager</dt><dd>@g.Manager</dd>
+                <dt>Room</dt><dd>@g.Room</dd>
+            </dl>
+            <PxBar Label="Budget" Value="g.SpentUsd" Max="g.BudgetUsd"
+                   Text="@($"${g.SpentUsd:0.00} / ${g.BudgetUsd:0.00}")"
+                   Color="@(g.Status == GoalState.Blocked ? "var(--blocked)" : "var(--gold)")" />
+            @if (g.LastDecision is { } d) { <p class="decision"><em>Last decision:</em> @d.Summary</p> }
+            @if (g.PendingNotes.Count > 0) { <ul class="notes">@foreach (var n in g.PendingNotes) { <li>@n</li> }</ul> }
+
+            <div class="actions">
+                @if (g.Status is GoalState.Blocked or GoalState.Running)
+                {
+                    <label>Add $ <input class="topup-amount" type="number" step="0.5" min="0.5" @bind="_topup" /></label>
+                    <PxButton CssClass="topup" Variant="primary" OnClick="() => Do(Api.TopUpAsync(g.Id, _topup))" Disabled="@(_topup <= 0)">Top up</PxButton>
+                }
+                @if (g.Status is not (GoalState.Done or GoalState.Failed or GoalState.Cancelled))
+                {
+                    <PxButton CssClass="cancel-goal" Variant="danger" OnClick="() => Do(Api.CancelGoalAsync(g.Id))">Cancel goal</PxButton>
+                }
+            </div>
+            @if (_error is not null) { <p class="error">@_error</p> }
+
+            <h3>Tasks</h3>
+            @foreach (var t in Store.Tasks.Values.Where(t => t.GoalId == g.Id).OrderBy(t => t.CreatedAt))
+            {
+                <button type="button" class="child-task status-@t.Status.ToString().ToLowerInvariant()" @onclick="() => OpenTask(t.Id)">
+                    <span class="title">@t.Title</span> <span class="assignee">@t.Assignee</span> <span class="status">@t.Status</span>
+                </button>
+            }
+        </PxPanel>
+    }
+</div>
+
+@code {
+    private bool _creating;
+    private string _title = "", _brief = "", _manager = "";
+    private decimal _budget = 5m, _topup = 5m;
+    private string? _error;
+
+    private IEnumerable<GoalDto> Visible
+        => Store.Goals.Values
+            .Where(g => Shell.GoalFilter is not { } f || g.Status == f)
+            .OrderByDescending(g => g.CreatedAt);
+
+    private GoalDto? Selected
+        => Shell.SelectedGoalId is { } id && Store.Goals.TryGetValue(id, out var g) ? g : null;
+
+    protected override void OnInitialized() { Store.Changed += OnChanged; Shell.Changed += OnChanged; }
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() { Store.Changed -= OnChanged; Shell.Changed -= OnChanged; }
+
+    private void Select(string id) { Shell.SelectGoal(id); _error = null; }
+    private void OpenTask(string id) { Shell.SelectTask(id); Shell.Go(Screen.Tasks); }
+
+    private async Task CreateAsync()
+    {
+        await Do(Api.CreateGoalAsync(new CreateGoalRequest(_title.Trim(), _brief.Trim(), _manager, _budget)));
+        if (_error is null) { _creating = false; _title = _brief = _manager = ""; }
+    }
+
+    private async Task Do(Task action)
+    {
+        _error = null;
+        try { await action; }
+        catch (ApiException ex) { _error = ex.Title; }
+    }
+}

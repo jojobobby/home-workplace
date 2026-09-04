@@ -1,0 +1,43 @@
+@namespace HomeWorkplace.UI.Screens
+@implements IDisposable
+@inject AppStore Store
+
+<div class="activity">
+    <PxPanel Title="Activity">
+        <div class="toolbar">
+            <select class="type-filter" value="@_type" @onchange="e => _type = e.Value?.ToString() ?? string.Empty">
+                <option value="">All events</option>
+                @foreach (var t in Types) { <option value="@t">@t</option> }
+            </select>
+            <span class="dim">@Visible.Count() shown</span>
+        </div>
+        <div class="event-list">
+            @foreach (var e in Visible)
+            {
+                <div class="event-row" data-seq="@e.Seq">
+                    <span class="time">@e.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+                    <span class="type">@e.Type</span>
+                    <span class="who">@(e.EmployeeId ?? "")</span>
+                    <span class="what">@(e.TaskId ?? "")</span>
+                    <span class="data dim">@(e.Data?.ToString() ?? "")</span>
+                </div>
+            }
+            @if (!Visible.Any()) { <p class="dim">Nothing yet.</p> }
+        </div>
+    </PxPanel>
+</div>
+
+@code {
+    private string _type = "";
+
+    private IEnumerable<string> Types => Store.RecentEvents.Select(e => e.Type).Distinct().OrderBy(t => t);
+
+    private IEnumerable<EventDto> Visible
+        => Store.RecentEvents
+            .Where(e => _type.Length == 0 || e.Type == _type)
+            .OrderByDescending(e => e.Seq);
+
+    protected override void OnInitialized() => Store.Changed += OnChanged;
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Store.Changed -= OnChanged;
+}

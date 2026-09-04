@@ -8,9 +8,9 @@
         <div class="brand">Home Workplace</div>
         @foreach (var s in AllScreens)
         {
-            <button class="nav-link @(Shell.Current == s ? "active" : "")" data-screen="@s.ToString().ToLowerInvariant()" @onclick="() => Shell.Go(s)">
+            <button type="button" class="nav-link @(Shell.Current == s ? "active" : "")" data-screen="@s.ToString().ToLowerInvariant()" @onclick="() => Shell.Go(s)">
                 <span>@s</span>
-                @if (s == Screen.Tasks) { <PxBadge Count="Store.HumanNeeded" /> }
+                @if (s == Screen.Tasks) { <PxBadge Count="Store.HumanNeeded" OnClick="Shell.ShowWhatNeedsMe" /> }
             </button>
         }
         @if (!Store.ServicesUp) { <div class="reconnect">connecting…</div> }
@@ -21,10 +21,10 @@
         {
             case Screen.Office: <Office /> break;
             case Screen.Employees: <Employees /> break;
+            case Screen.Tasks: <Tasks /> break;
+            case Screen.Goals: <Goals /> break;
+            case Screen.Activity: <Activity /> break;
             case Screen.Setup: <Setup /> break;
-            case Screen.Tasks: <div class="tasks placeholder">Tasks — coming next.</div> break;
-            case Screen.Goals: <div class="goals placeholder">Goals — coming next.</div> break;
-            case Screen.Activity: <div class="activity placeholder">Activity — coming next.</div> break;
         }
     </main>
 

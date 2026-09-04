@@ -1,6 +1,7 @@
 @namespace HomeWorkplace.UI.Components
 
-<button class="px-btn @Variant @CssClass" disabled="@Disabled" @onclick="OnClick">@ChildContent</button>
+@* type="button": never a form submitter, so a button inside a create form fires its own handler exactly once. *@
+<button type="button" class="px-btn @Variant @CssClass" disabled="@Disabled" @onclick="OnClick">@ChildContent</button>
 
 @code {
     /// <summary>primary | danger | ghost (default styling when empty).</summary>
