@@ -15,6 +15,7 @@ public sealed class Simulation
     private const float CoffeeTime = 3f;
     private const float TalkTime = 3f;
     private const float SparkInterval = 2f;
+    private const float KeyInterval = 0.09f;
     private const float SteamInterval = 1f;
 
     private readonly Dictionary<string, Agent> _agents = new(StringComparer.Ordinal);
@@ -145,6 +146,13 @@ public sealed class Simulation
                     {
                         Emit(MomentKind.Particles, "sparks", World.DeskOf(agent.Id)?.Pos ?? agent.Tile, 0.6f);
                         agent.EffectTimer = SparkInterval;
+                    }
+                    agent.KeyTimer -= dt;
+                    if (agent.KeyTimer <= 0)
+                    {
+                        Emit(MomentKind.Sound, "keys", agent.Tile, 0.2f);
+                        // bursts of typing with pauses between: mostly quick, sometimes a breath
+                        agent.KeyTimer = _rng.NextDouble() < 0.15 ? 0.6f + (float)_rng.NextDouble() * 0.8f : KeyInterval + (float)_rng.NextDouble() * KeyInterval;
                     }
                     break;
 

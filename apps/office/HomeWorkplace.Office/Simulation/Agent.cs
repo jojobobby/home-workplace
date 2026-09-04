@@ -55,6 +55,7 @@ public sealed class Agent
     internal float WanderTimer { get; set; }
     internal float ActivityTimer { get; set; }
     internal float StepTimer { get; set; }
+    internal float KeyTimer { get; set; }
     internal float EffectTimer { get; set; }
     /// <summary>True while on a hand-off errand; the status behaviour resumes after it.</summary>
     internal bool OnErrand { get; set; }
