@@ -1,4 +1,4 @@
-namespace HomeWorkplace.Office.Simulation;
+namespace HomeWorkplace.Office.Sim;
 
 public enum PropKind { Desk, CoffeeMachine, Whiteboard, Plant }
 

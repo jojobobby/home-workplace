@@ -1,4 +1,4 @@
-namespace HomeWorkplace.Office.Simulation;
+namespace HomeWorkplace.Office.Sim;
 
 /// <summary>Grid A* with four-neighbour moves and a Manhattan heuristic. Returns the path from
 /// <c>from</c> to <c>to</c> inclusive, or null when no path exists.</summary>

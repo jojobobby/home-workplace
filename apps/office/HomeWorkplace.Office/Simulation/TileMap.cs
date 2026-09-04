@@ -1,4 +1,4 @@
-namespace HomeWorkplace.Office.Simulation;
+namespace HomeWorkplace.Office.Sim;
 
 public enum TileKind { Floor, Wall }
 

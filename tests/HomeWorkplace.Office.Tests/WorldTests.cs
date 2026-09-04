@@ -1,4 +1,4 @@
-using HomeWorkplace.Office.Simulation;
+using HomeWorkplace.Office.Sim;
 
 namespace HomeWorkplace.Office.Tests;
 
