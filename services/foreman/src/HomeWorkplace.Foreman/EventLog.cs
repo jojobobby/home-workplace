@@ -24,6 +24,10 @@ public sealed class EventLog
         _options = options;
         _clock = clock;
         _store = store;
+        // Seed from disk HERE, before any emitter can exist. Seeding later (in recovery)
+        // let an early emit hand out seq 1 again and then re-load its own persisted copy —
+        // duplicate, out-of-order seqs, breaking the "cursor never resets" contract.
+        if (_store is not null) Seed(_store.LoadEvents(_options.EventsCapacity));
     }
 
     public void Emit(string type, string? employeeId = null, string? taskId = null, string? runId = null, object? data = null)

@@ -51,4 +51,34 @@ public class RestartTests
         Assert.True(page!.Cursor >= cursor);
         try { Directory.Delete(dataPath, true); } catch { }
     }
+
+    // Regression: the catalog emitted "catalog.reloaded" at construction, before recovery
+    // seeded yesterday's events, so a fresh boot handed out seq 1 again (and re-loaded its
+    // own just-persisted seq 1 on top). Seqs must be unique and increasing across restarts.
+    [Fact]
+    public async Task Event_seqs_are_unique_and_increasing_across_a_restart()
+    {
+        var dataPath = Path.Combine(Path.GetTempPath(), "foreman-restart-seq", Guid.NewGuid().ToString("N"));
+        var employeesPath = Path.Combine(dataPath, "employees");
+        Directory.CreateDirectory(employeesPath);
+        WriteAda(dataPath);
+        long cursor1;
+
+        await using (var f1 = ForemanFactory.Existing(dataPath, employeesPath))
+        {
+            using var c1 = f1.CreateClient();
+            await c1.PostAsync("/employees/ada/wake", null);   // an employee.state event on top of catalog.reloaded
+            cursor1 = (await c1.GetFromJsonAsync<EventPage>("/events?since=0", TestJson.Options))!.Cursor;
+        }
+
+        await using var f2 = ForemanFactory.Existing(dataPath, employeesPath);
+        using var c2 = f2.CreateClient();
+        var page = await c2.GetFromJsonAsync<EventPage>("/events?since=0&limit=500", TestJson.Options);
+        var seqs = page!.Events.Select(e => e.Seq).ToList();
+
+        Assert.Equal(seqs.Count, seqs.Distinct().Count());                       // no duplicates
+        Assert.True(seqs.SequenceEqual(seqs.OrderBy(s => s)), "seqs out of order");  // increasing in stream order
+        Assert.Contains(page.Events, e => e.Type == "catalog.reloaded" && e.Seq > cursor1); // boot 2 continues above boot 1
+        try { Directory.Delete(dataPath, true); } catch { }
+    }
 }
