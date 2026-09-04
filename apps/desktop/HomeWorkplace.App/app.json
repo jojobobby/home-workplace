@@ -1,0 +1,9 @@
+{
+  "connectOnly": false,
+  "foremanUrl": "http://localhost:5172",
+  "contextApiUrl": "http://localhost:5171",
+  "contextApi": { "command": "dotnet", "args": ["run", "--project", "services/context-api/src/HomeWorkplace.ContextApi"], "workingDirectory": null },
+  "foreman":    { "command": "dotnet", "args": ["run", "--project", "services/foreman/src/HomeWorkplace.Foreman"], "workingDirectory": null },
+  "healthPollMs": 500,
+  "healthTimeoutSeconds": 120
+}

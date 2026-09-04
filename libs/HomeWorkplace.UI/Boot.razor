@@ -1,0 +1,80 @@
+@implements IDisposable
+@inject ServiceSupervisor Supervisor
+@inject EventPump Pump
+
+@* The company boots: launch the services, wait for health, then show the app and start the live pump. *@
+@if (_booted)
+{
+    <App />
+}
+else
+{
+    <div class="boot">
+        <div class="boot-panel px-panel">
+            <h1>Home Workplace</h1>
+            <p class="dim">@(_error is null ? "Booting your company…" : "The company did not boot.")</p>
+            <ul class="boot-log">
+                @foreach (var line in _log) { <li class="@(line.Healthy ? "ok" : "")">@line.Message</li> }
+            </ul>
+            @if (_error is not null)
+            {
+                <p class="boot-error">@_error</p>
+                @if (_lastOutput.Count > 0) { <pre class="boot-output">@string.Join("\n", _lastOutput)</pre> }
+                <div class="actions">
+                    <PxButton CssClass="retry" Variant="primary" OnClick="BootAsync">Retry</PxButton>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _booted;
+    private string? _error;
+    private IReadOnlyList<string> _lastOutput = Array.Empty<string>();
+    private readonly List<BootProgress> _log = new();
+    private CancellationTokenSource? _pumpCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Supervisor.Progress += OnProgress;
+        await BootAsync();
+    }
+
+    private void OnProgress(BootProgress p)
+    {
+        _log.Add(p);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task BootAsync()
+    {
+        _error = null;
+        _lastOutput = Array.Empty<string>();
+        _log.Clear();
+
+        var result = await Supervisor.StartAsync(CancellationToken.None);
+        if (!result.Success)
+        {
+            _error = result.Error;
+            _lastOutput = result.LastOutput;
+            return;
+        }
+
+        _booted = true;
+        _pumpCts = new CancellationTokenSource();
+        _ = RunPumpAsync(_pumpCts.Token);
+    }
+
+    private async Task RunPumpAsync(CancellationToken ct)
+    {
+        try { await Pump.RunAsync(ct); }
+        catch (OperationCanceledException) { /* the app is closing */ }
+    }
+
+    public void Dispose()
+    {
+        Supervisor.Progress -= OnProgress;
+        _pumpCts?.Cancel();
+    }
+}

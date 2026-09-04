@@ -112,3 +112,29 @@ input { font-family: inherit; font-size: 16px; }
 .detail dt { color: var(--text-dim); } .detail dd { margin: 0; }
 .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .placeholder { color: var(--text-dim); }
+
+/* ---- boot screen ---- */
+.boot { min-height: 100vh; display: grid; place-items: center; }
+.boot-panel { width: min(640px, 90vw); }
+.boot-log { list-style: none; padding: 0; margin: 10px 0; font-size: 15px; color: var(--text-dim); }
+.boot-log li::before { content: "· "; }
+.boot-log li.ok { color: var(--awake); }
+.boot-log li.ok::before { content: "✓ "; }
+.boot-error { color: var(--needs-human); }
+.boot-output { max-height: 220px; overflow: auto; font-size: 13px; background: var(--border-dark); padding: 8px; border: 2px solid var(--border-light); }
+.error { color: var(--needs-human); font-size: 15px; }
+.dim { color: var(--text-dim); }
+.question { color: var(--gold); }
+.task-row, .goal-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 12px; width: 100%; text-align: left; padding: 8px 10px; margin-bottom: 6px;
+  background: var(--panel-light); color: var(--text); border: 2px solid var(--border-dark); box-shadow: inset 2px 2px 0 var(--border-light); }
+.task-row.selected, .goal-row.selected { outline: 3px solid var(--gold); outline-offset: -3px; }
+.task-row .status, .goal-row .status { color: var(--text-dim); font-size: 14px; }
+.task-row.status-needshuman .status, .goal-row.status-blocked .status { color: var(--needs-human); }
+.child-task { display: flex; gap: 12px; width: 100%; text-align: left; padding: 6px 10px; margin-bottom: 4px; background: var(--panel-light); color: var(--text); border: 2px solid var(--border-dark); }
+.create-task, .create-goal { display: grid; gap: 8px; padding: 10px; margin-bottom: 10px; background: var(--panel-light); border: 2px solid var(--border-dark); }
+.create-task input, .create-task textarea, .create-task select, .create-goal input, .create-goal textarea, .create-goal select,
+.detail textarea, .detail select, .detail input { background: var(--border-dark); color: var(--text); border: 2px solid var(--border-light); padding: 6px; }
+.brief-room { white-space: pre-wrap; font-size: 14px; background: var(--border-dark); padding: 8px; border: 2px solid var(--border-light); max-height: 320px; overflow: auto; }
+.event-row { display: grid; grid-template-columns: 80px 160px 110px 110px 1fr; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--border-dark); font-size: 14px; }
+.event-row .data { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.progress-entry, .run { padding: 6px 0; border-bottom: 1px solid var(--border-dark); font-size: 15px; }

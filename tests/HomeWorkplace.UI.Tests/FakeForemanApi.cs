@@ -47,13 +47,14 @@ public sealed class FakeForemanApi : IForemanApi
     public Task<GoalDto> TopUpAsync(string id, decimal addUsd, CancellationToken ct = default) => System.Threading.Tasks.Task.FromResult(Rec("topup:" + id + ":" + addUsd, Goals[id]));
     public Task<GoalDto> CancelGoalAsync(string id, CancellationToken ct = default) => System.Threading.Tasks.Task.FromResult(Rec("cancelGoal:" + id, Goals[id]));
 
-    public Task<EventPageDto> GetEventsAsync(long since = 0, int wait = 0, int limit = 200, CancellationToken ct = default)
+    public async Task<EventPageDto> GetEventsAsync(long since = 0, int wait = 0, int limit = 200, CancellationToken ct = default)
     {
         Calls.Add("events");
         SinceValues.Add(since);
         if (ThrowOnEvents is { } ex) { ThrowOnEvents = null; throw ex; }
-        var page = Pages.Count > 0 ? Pages.Dequeue()(since) : new EventPageDto { Cursor = since, Events = Array.Empty<EventDto>() };
-        return System.Threading.Tasks.Task.FromResult(page);
+        if (Pages.Count > 0) return Pages.Dequeue()(since);
+        await System.Threading.Tasks.Task.Delay(5, ct);   // a real long-poll would block; don't let a running pump hot-spin in tests
+        return new EventPageDto { Cursor = since, Events = Array.Empty<EventDto>() };
     }
 
     public Task<HealthDto> GetHealthAsync(CancellationToken ct = default) => System.Threading.Tasks.Task.FromResult(Rec("health", new HealthDto("ok", null)));

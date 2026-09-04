@@ -70,4 +70,9 @@
       <ProjectReference Include="..\..\..\libs\HomeWorkplace.Client\HomeWorkplace.Client.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <!-- Lands beside the exe; AppConfig.Load reads it from AppContext.BaseDirectory. -->
+      <None Include="app.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>
