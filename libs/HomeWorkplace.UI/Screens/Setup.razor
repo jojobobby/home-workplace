@@ -1,0 +1,73 @@
+@namespace HomeWorkplace.UI.Screens
+@inject CliSetupChecker Checker
+@inject ITerminalLauncher Terminal
+
+<div class="setup">
+    <header class="setup-header">
+        <h2>Setup</h2>
+        <button class="refresh" @onclick="RefreshAsync">Refresh</button>
+    </header>
+
+    @if (_statuses is null)
+    {
+        <p class="loading">Checking your CLIs…</p>
+    }
+    else
+    {
+        @foreach (var s in _statuses)
+        {
+            <div class="setup-card" data-cli="@s.Cli">
+                <h3>@Title(s.Cli)</h3>
+                <span class="state @StateClass(s.State)">@StateText(s.State)</span>
+                @if (s.Version is not null) { <span class="version">@s.Version</span> }
+                @if (s.Detail is not null) { <span class="detail">@s.Detail</span> }
+
+                @if (s.State == CliState.InstalledNotSignedIn)
+                {
+                    <button class="sign-in" @onclick="() => SignIn(s.Cli)">Sign in</button>
+                }
+                else if (s.State == CliState.NotInstalled)
+                {
+                    <span class="hint">@InstallHint(s.Cli)</span>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private IReadOnlyList<CliStatus>? _statuses;
+
+    protected override Task OnInitializedAsync() => RefreshAsync();
+
+    private async Task RefreshAsync()
+    {
+        _statuses = await Checker.CheckAllAsync(CancellationToken.None);
+    }
+
+    private void SignIn(string cli)
+    {
+        if (cli == "claude") Terminal.Open("claude", Array.Empty<string>());   // first run of claude prompts its login
+        else Terminal.Open("codex", new[] { "login" });
+    }
+
+    private static string Title(string cli) => cli == "claude" ? "Claude Code" : "Codex";
+
+    private static string StateText(CliState s) => s switch
+    {
+        CliState.SignedIn => "Signed in",
+        CliState.InstalledNotSignedIn => "Not signed in",
+        _ => "Not installed",
+    };
+
+    private static string StateClass(CliState s) => s switch
+    {
+        CliState.SignedIn => "ok",
+        CliState.InstalledNotSignedIn => "warn",
+        _ => "bad",
+    };
+
+    private static string InstallHint(string cli) => cli == "claude"
+        ? "Install Claude Code, then come back and Refresh."
+        : "Install the Codex CLI, then come back and Refresh.";
+}

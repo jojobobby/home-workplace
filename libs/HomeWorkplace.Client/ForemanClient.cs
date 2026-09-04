@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace HomeWorkplace.Client;
 
 /// <summary>Typed client for every Foreman endpoint. Nothing here that curl couldn't do.</summary>
-public sealed class ForemanClient
+public sealed class ForemanClient : IForemanApi
 {
     private readonly HttpClient _http;
 

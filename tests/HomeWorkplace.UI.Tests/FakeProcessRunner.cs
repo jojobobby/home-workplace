@@ -21,6 +21,7 @@ public sealed class FakeProcessRunner : IProcessRunner
     private readonly Dictionary<string, Func<IReadOnlyList<string>, ProcessResult>> _scripts = new(StringComparer.OrdinalIgnoreCase);
     public List<StartCall> Starts { get; } = new();
     public List<FakeHandle> Handles { get; } = new();
+    public int RunCalls { get; private set; }
 
     public FakeProcessRunner Script(string command, Func<IReadOnlyList<string>, ProcessResult> respond)
     { _scripts[command] = respond; return this; }
@@ -29,6 +30,7 @@ public sealed class FakeProcessRunner : IProcessRunner
 
     public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, TimeSpan timeout, CancellationToken ct)
     {
+        RunCalls++;
         if (!_scripts.TryGetValue(command, out var respond))
             throw new System.ComponentModel.Win32Exception(2, $"{command}: not found");   // what a missing exe looks like
         return Task.FromResult(respond(args));

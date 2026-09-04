@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace HomeWorkplace.Client;
 
 /// <summary>The few context-api reads the shell needs: a room's brief and its folder.</summary>
-public sealed class ContextApiClient
+public sealed class ContextApiClient : IContextApi
 {
     private readonly HttpClient _http;
 
