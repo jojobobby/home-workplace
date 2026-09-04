@@ -48,6 +48,7 @@ public sealed class DayCycle : BackgroundService
             {
                 _employees.Wake(def.Id, s.AwakeOverrideUntil);
                 _supervisor.Pump();
+                _supervisor.PumpGoals();   // a waking manager picks up goals that settled overnight
             }
             else if (!desiredAwake && s.Status != EmployeeStatus.Asleep && !_supervisor.IsBusy(def.Id))
             {

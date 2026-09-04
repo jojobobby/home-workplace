@@ -77,6 +77,8 @@ public sealed partial class RunSupervisor
             {
                 if (_busy.Contains(task.Assignee)) continue;
                 if (_employees.GetState(task.Assignee).Status != EmployeeStatus.Awake) continue;
+                // A goal task must not spend past its goal's budget: block the goal, leave the task queued.
+                if (task.GoalId is { } gid && _goals.IsOverBudget(gid)) { _goals.Block(gid); continue; }
                 _busy.Add(task.Assignee);
                 _employees.MarkWorking(task.Assignee, task.Id);
                 _ = RunAsync(task.Id, task.Assignee);
@@ -113,6 +115,14 @@ public sealed partial class RunSupervisor
 
             _tasks.ApplyResult(taskId, employeeId, runId, result, _clock.GetUtcNow());
             _events.Emit("run.finished", employeeId, taskId, runId, new { status = result.Status.ToString(), result.Summary });
+
+            // Goal bookkeeping: the run's dollars accrue to the goal, and a settled task
+            // (done or failed) is the manager's cue to look again.
+            if (_tasks.Get(taskId) is { GoalId: { } goalId } settled)
+            {
+                _goals.AddCost(goalId, Cost.Of(result.Usage, def.Model, _options.Pricing));
+                if (settled.Status is TaskState.Done or TaskState.Failed) RequestManagerRun(goalId);
+            }
         }
         catch (Exception ex)
         {

@@ -25,6 +25,23 @@ public static class GoalEndpoints
         app.MapGet("/goals/{id}", (string id, GoalBook goals)
             => goals.Get(id) is { } g ? Results.Ok(g) : Results.NotFound());
 
+        app.MapPost("/goals/{id}/topup", (string id, TopUpRequest req, GoalBook goals, RunSupervisor sup) =>
+        {
+            if (goals.Get(id) is null) return Results.NotFound();
+            if (req.AddUsd <= 0m)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["addUsd"] = new[] { "addUsd must be greater than 0." } });
+            if (!goals.TopUp(id, req.AddUsd)) return Results.Conflict();
+            sup.RequestManagerRun(id);     // a blocked manager gets to look again; retried if busy
+            sup.Pump();                    // and blocked worker tasks may now run
+            return Results.Ok(goals.Get(id));
+        });
+
+        app.MapPost("/goals/{id}/cancel", (string id, GoalBook goals, TaskBook tasks, RunSupervisor sup) =>
+        {
+            if (goals.Get(id) is null) return Results.NotFound();
+            return goals.Cancel(id, tasks, sup) ? Results.Ok(goals.Get(id)) : Results.Conflict();
+        });
+
         return app;
     }
 }

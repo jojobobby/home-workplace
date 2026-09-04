@@ -73,6 +73,59 @@ public sealed class GoalBook
     public bool IsOverBudget(string goalId)
         => Get(goalId) is { } g && g.SpentUsd >= g.BudgetUsd;
 
+    /// <summary>Mark that the manager must look again (a task settled, a top-up landed). Persisted.</summary>
+    public void FlagAttention(string goalId)
+    {
+        if (Get(goalId) is not { } g || IsTerminal(g.Status) || g.NeedsManagerAttention) return;
+        g.NeedsManagerAttention = true;
+        Save(g);
+    }
+
+    /// <summary>A manager run has started and will see the current state; the flag is consumed.</summary>
+    public void ClearAttention(string goalId)
+    {
+        if (Get(goalId) is not { NeedsManagerAttention: true } g) return;
+        g.NeedsManagerAttention = false;
+        Save(g);
+    }
+
+    private static bool IsTerminal(GoalState s) => s is GoalState.Done or GoalState.Failed or GoalState.Cancelled;
+
+    /// <summary>Budget exhausted: stop spawning and ask a human for a top-up or a cancel. Idempotent.</summary>
+    public void Block(string goalId)
+    {
+        if (Get(goalId) is not { } g || g.Status == GoalState.Blocked || IsTerminal(g.Status)) return;
+        g.Status = GoalState.Blocked;
+        Save(g);
+        _events.Emit("goal.blocked", employeeId: g.Manager, data: new { goalId, g.SpentUsd, g.BudgetUsd });
+        _events.Emit("human.needed", employeeId: g.Manager, data: new { goalId, reason = "budget exhausted" });
+        _ = _rooms.PostAsync(g.Room, "foreman", "Foreman", null,
+            $"Budget exhausted: ${g.SpentUsd:0.00} of ${g.BudgetUsd:0.00} spent. Waiting for a top-up or a cancel.", CancellationToken.None);
+    }
+
+    /// <summary>Raise the budget; a blocked goal resumes. False when the goal is finished or the amount is not positive.</summary>
+    public bool TopUp(string goalId, decimal addUsd)
+    {
+        if (addUsd <= 0m || Get(goalId) is not { } g || IsTerminal(g.Status)) return false;
+        g.BudgetUsd += addUsd;
+        if (g.Status == GoalState.Blocked) g.Status = GoalState.Running;
+        Save(g);
+        _ = _rooms.PostAsync(g.Room, "foreman", "Foreman", null,
+            $"Budget topped up by ${addUsd:0.00} to ${g.BudgetUsd:0.00}.", CancellationToken.None);
+        return true;
+    }
+
+    /// <summary>Cancel the goal and every open task it created.</summary>
+    public bool Cancel(string goalId, TaskBook tasks, RunSupervisor supervisor)
+    {
+        if (Get(goalId) is not { } g || IsTerminal(g.Status)) return false;
+        g.Status = GoalState.Cancelled;
+        Save(g);
+        foreach (var tid in g.TaskIds) tasks.Cancel(tid, supervisor);   // no-op for tasks already finished
+        _ = _rooms.PostAsync(g.Room, "foreman", "Foreman", null, "Goal cancelled.", CancellationToken.None);
+        return true;
+    }
+
     /// <summary>Load goals from disk at startup.</summary>
     public void SeedFrom(IEnumerable<GoalModel> goals)
     {

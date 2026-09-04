@@ -19,6 +19,8 @@ public sealed class GoalModel
     public required string Room { get; set; }
     public List<string> TaskIds { get; set; } = new();
     public List<string> PendingNotes { get; set; } = new();
+    /// <summary>A settle (or top-up/approval) happened and the manager has not looked yet. Persisted, so it survives a restart.</summary>
+    public bool NeedsManagerAttention { get; set; }
     public Decision? LastDecision { get; set; }
     public SessionRef? Session { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

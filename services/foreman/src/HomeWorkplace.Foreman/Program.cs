@@ -58,6 +58,7 @@ app.MapPost("/employees/{id}/wake", (string id, string? until, EmployeeCatalog c
     }
     cat.Wake(id, overrideUntil);
     sup.Pump();
+    sup.PumpGoals();   // a manually woken manager picks up goals waiting on it
     return Results.NoContent();
 });
 app.MapPost("/employees/{id}/reset", async (string id, EmployeeCatalog cat, RunSupervisor sup, CancellationToken ct) =>
@@ -87,8 +88,13 @@ app.MapPost("/tasks", async (CreateTaskRequest req, TaskBook book, EmployeeCatal
 });
 app.MapGet("/tasks", (TaskState? status, string? assignee, TaskBook book) => Results.Ok(book.List(status, assignee)));
 app.MapGet("/tasks/{id}", (string id, TaskBook book) => book.Get(id) is { } t ? Results.Ok(t) : Results.NotFound());
-app.MapPost("/tasks/{id}/approve", (string id, TaskBook book) =>
-    book.Get(id) is null ? Results.NotFound() : book.Approve(id) ? Results.Ok(book.Get(id)) : Results.Conflict());
+app.MapPost("/tasks/{id}/approve", (string id, TaskBook book, RunSupervisor sup) =>
+{
+    if (book.Get(id) is null) return Results.NotFound();
+    if (!book.Approve(id)) return Results.Conflict();
+    if (book.Get(id)?.GoalId is { } gid) sup.RequestManagerRun(gid);   // an approved goal task is a settle
+    return Results.Ok(book.Get(id));
+});
 app.MapPost("/tasks/{id}/answer", (string id, AnswerRequest req, TaskBook book, RunSupervisor sup) =>
     book.Get(id) is null ? Results.NotFound()
     : string.IsNullOrWhiteSpace(req.Text) ? Results.ValidationProblem(new Dictionary<string, string[]> { ["text"] = new[] { "text is required." } })

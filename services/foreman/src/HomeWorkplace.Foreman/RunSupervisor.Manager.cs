@@ -4,6 +4,17 @@ namespace HomeWorkplace.Foreman;
 public sealed partial class RunSupervisor
 {
     /// <summary>
+    /// Ask for a manager run because something changed (a task settled, a top-up landed, a task
+    /// was approved). The goal is flagged FIRST, so if the manager is busy right now the request
+    /// is not lost: PumpGoals() retries flagged goals whenever the manager frees up or wakes.
+    /// </summary>
+    public void RequestManagerRun(string goalId)
+    {
+        _goals.FlagAttention(goalId);
+        _ = RunManagerAsync(goalId);
+    }
+
+    /// <summary>
     /// Run the goal's manager once: build its prompt from goal/roster/children/budget, get a
     /// decision, accrue the run's cost, execute the actions. Skips silently when the manager is
     /// busy, asleep, or the goal is terminal or over budget — a skipped run is retried by
@@ -15,7 +26,7 @@ public sealed partial class RunSupervisor
         if (goal is null || goal.Status is GoalState.Done or GoalState.Failed or GoalState.Cancelled or GoalState.Blocked) return;
         var def = _employees.Find(goal.Manager);
         if (def is null) return;
-        if (_goals.IsOverBudget(goalId)) return;
+        if (_goals.IsOverBudget(goalId)) { _goals.Block(goalId); return; }
 
         lock (_gate)
         {
@@ -24,6 +35,7 @@ public sealed partial class RunSupervisor
             _busy.Add(goal.Manager);
         }
         _employees.MarkWorking(goal.Manager, goalId);
+        _goals.ClearAttention(goalId);   // this run will see the current state; a later settle re-flags
 
         var runId = Guid.NewGuid().ToString("N")[..8];
         try
@@ -74,10 +86,11 @@ public sealed partial class RunSupervisor
         }
     }
 
-    /// <summary>Start a manager run for every goal still in Planning whose manager can take it.</summary>
+    /// <summary>Start a manager run for every goal that is waiting on one: still Planning, or Running with a pending settle.</summary>
     public void PumpGoals()
     {
-        foreach (var g in _goals.List().Where(g => g.Status == GoalState.Planning))
+        foreach (var g in _goals.List().Where(g =>
+                     g.Status == GoalState.Planning || (g.Status == GoalState.Running && g.NeedsManagerAttention)))
             _ = RunManagerAsync(g.Id);
     }
 }
