@@ -105,6 +105,7 @@ public sealed class TaskModel
     public bool AwaitingApproval { get; set; }
     public string? PendingQuestion { get; set; }
     public string? ParentId { get; set; }
+    public string? GoalId { get; set; }
     public List<string> ChildIds { get; set; } = new();
     public required string Room { get; set; }
     public required string Workspace { get; set; }

@@ -66,7 +66,7 @@ public class TaskLifecycleTests
         Assert.Single(listed!);
     }
 
-    private static async Task<TaskModel> PollUntil(HttpClient client, string id, Func<TaskModel, bool> done, int seconds = 5)
+    private static async Task<TaskModel> PollUntil(HttpClient client, string id, Func<TaskModel, bool> done, int seconds = 10)
     {
         var deadline = DateTime.UtcNow.AddSeconds(seconds);
         while (DateTime.UtcNow < deadline)

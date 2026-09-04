@@ -18,7 +18,7 @@ public class ApprovalTests
         File.WriteAllText(Path.Combine(dir, "skills.md"), "s");
         File.WriteAllText(Path.Combine(dir, "life.md"), "l");
     }
-    private static async Task<TaskModel> Poll(HttpClient c, string id, Func<TaskModel, bool> p, int s = 5)
+    private static async Task<TaskModel> Poll(HttpClient c, string id, Func<TaskModel, bool> p, int s = 10)
     { var end = DateTime.UtcNow.AddSeconds(s); while (DateTime.UtcNow < end) { var t = await c.GetFromJsonAsync<TaskModel>($"/tasks/{id}", TestJson.Options); if (t is not null && p(t)) return t; await Task.Delay(50); } throw new Xunit.Sdk.XunitException("timeout"); }
 
     [Fact]

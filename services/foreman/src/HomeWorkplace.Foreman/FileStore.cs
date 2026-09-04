@@ -48,11 +48,23 @@ public sealed class FileStore
         return list;
     }
 
-    private static void WriteAtomic<T>(string path, T value)
+    private readonly object _writeGate = new();
+
+    /// <summary>
+    /// Write-then-rename so a reader never sees a half-written file. Two things make it safe
+    /// for concurrent writers of the SAME record (a finishing run and a /reset or /answer can
+    /// both save one task within microseconds): each write gets its own temp name, so writers
+    /// never share a temp file; and the write+move pair is serialized, because Windows refuses
+    /// to replace a file another thread is mid-replacing. Writes are tiny, so one gate is fine.
+    /// </summary>
+    private void WriteAtomic<T>(string path, T value)
     {
-        var tmp = path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(value, Json));
-        File.Move(tmp, path, overwrite: true);
+        var tmp = $"{path}.{Guid.NewGuid():N}.tmp";
+        lock (_writeGate)
+        {
+            File.WriteAllText(tmp, JsonSerializer.Serialize(value, Json));
+            File.Move(tmp, path, overwrite: true);
+        }
     }
 
     private static IReadOnlyList<T> LoadAll<T>(string dir)
