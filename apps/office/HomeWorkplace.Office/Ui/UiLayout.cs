@@ -16,10 +16,15 @@ public static class UiLayout
 {
     public const int W = 480;
     public const int H = 272;
-    public const int Line = PixelFont.GlyphHeight + 3;       // 10 px per text line
+    /// <summary>Native pixels per text line: a 30-px font on 39-px lines at 3×, about 1.25× its height.</summary>
+    public const int Line = 13;
 
     // ---- dialogue ----
-    public const int DialogueHeight = 112;
+    /// <summary>Name, four lines, a gap, four option rows, the key hint, margins.</summary>
+    public const int DialogueHeight = 150;
+    public const int DialogueLinesY = 22;
+    public const int DialogueOptionsY = 78;
+    public const int DialogueHintY = 134;
     public const int DialogueOptionsPerPage = 8;
     public static UiRect DialogueBox => new(8, H - 8 - DialogueHeight, W - 16, DialogueHeight);
 
@@ -27,7 +32,7 @@ public static class UiLayout
     public static UiRect DialogueOptionRect(int index)
     {
         var slot = index % DialogueOptionsPerPage;
-        return new UiRect(64 + (slot / 4) * 200, DialogueBox.Y + 62 + (slot % 4) * Line, 190, Line);
+        return new UiRect(64 + (slot / 4) * 200, DialogueBox.Y + DialogueOptionsY + (slot % 4) * Line, 190, Line);
     }
 
     /// <summary>Which option of <paramref name="d"/> is under <paramref name="p"/>, or -1.</summary>
@@ -40,7 +45,7 @@ public static class UiLayout
     }
 
     // ---- overlay ----
-    public const int OverlayVisibleRows = 20;
+    public const int OverlayVisibleRows = 15;
     public static UiRect OverlayBox => new(8, 8, W - 16, H - 16);
 
     public static UiRect OverlayTabRect(OverlayTab tab)
@@ -84,7 +89,7 @@ public static class UiLayout
     public static UiRect ToastRect(int index, string text)
     {
         var w = PixelFont.Measure(ToastText(text)) + 12;
-        return new UiRect(W - 8 - w, 8 + index * 17, w, 15);
+        return new UiRect(W - 8 - w, 8 + index * (Line + 6), w, Line + 4);
     }
 
     // ---- confirm ----

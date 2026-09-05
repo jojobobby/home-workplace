@@ -10,7 +10,7 @@ namespace HomeWorkplace.Office.Render;
 public sealed class Hud : IDisposable
 {
     /// <summary>Fonts UI text is drawn with, most wanted first: the terminal's default, then the console classic. The world keeps its pixel font.</summary>
-    public static string[] FontFamilies { get; set; } = { "Cascadia Mono", "Cascadia Code", "Consolas", "Lucida Console" };
+    public static string[] FontFamilies { get; set; } = { "Cascadia Mono SemiBold", "Cascadia Mono", "Cascadia Code", "Consolas", "Lucida Console" };
 
     private readonly GraphicsDevice _device;
     private readonly SpriteBatch _batch;
@@ -70,7 +70,7 @@ public sealed class Hud : IDisposable
         _pixel.SetData(new[] { Color.White });
     }
 
-    public int LineHeight => PixelFont.GlyphHeight + 3;
+    public int LineHeight => Ui.UiLayout.Line;
 
     public void Begin(int scale)
     {
@@ -93,10 +93,9 @@ public sealed class Hud : IDisposable
     public void Text(string text, int x, int y, Color ink, Color? backdrop = null, int maxChars = int.MaxValue)
     {
         if (text.Length > maxChars) text = text[..Math.Max(0, maxChars)];
-        if (backdrop is { } bg)
-            Fill(x - 1, y - 1, PixelFont.Measure(text) + 1, PixelFont.GlyphHeight + 2, bg);
-
         var font = PixelText ? null : FontFor(_scale);
+        if (backdrop is { } bg)
+            Fill(x - 1, y - 1, PixelFont.Measure(text) + 1, font is null ? PixelFont.GlyphHeight + 2 : Ui.UiLayout.Line - 1, bg);
         var cx = x;
         if (font is { } f)
         {
@@ -125,7 +124,7 @@ public sealed class Hud : IDisposable
     {
         if (_fonts.TryGetValue(scale, out var cached)) return cached;
         var family = TextAtlas.PickFamily(FontFamilies);
-        var atlas = family is null ? null : TextAtlas.TryBuild(family, PixelFont.Advance * scale, (PixelFont.GlyphHeight + 3) * scale);
+        var atlas = family is null ? null : TextAtlas.TryBuild(family, PixelFont.Advance * scale, Ui.UiLayout.Line * scale);
         (Texture2D, TextAtlas)? entry = null;
         if (atlas is not null)
         {

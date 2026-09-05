@@ -13,7 +13,7 @@ public sealed class UiRenderer
 {
     public const int W = SceneRenderer.NativeWidth;
     public const int H = SceneRenderer.NativeHeight;
-    private const int Line = PixelFont.GlyphHeight + 3;      // 10 px per text line
+    private const int Line = UiLayout.Line;
 
     private static readonly Color Text = new(0xf4, 0xf1, 0xe8), Dim = new(0xb9, 0xb7, 0xc9), Gold = new(0xf0, 0xd7, 0x8c);
     private static readonly Color Red = new(0xf0, 0x8c, 0x7b), Green = new(0x7b, 0xd8, 0x8f), Ink = new(0x0d, 0x0f, 0x22);
@@ -49,7 +49,7 @@ public sealed class UiRenderer
 
     // ---- dialogue ------------------------------------------------------------------------
 
-    public const int DialogueHeight = 112;
+    public const int DialogueHeight = UiLayout.DialogueHeight;
 
     private void DrawDialogue(Dialogue d)
     {
@@ -71,7 +71,7 @@ public sealed class UiRenderer
 
         // lines, typewriter-revealed
         var remaining = d.Revealed;
-        var ly = y0 + 20;
+        var ly = y0 + UiLayout.DialogueLinesY;
         var shown = 0;
         foreach (var line in d.Lines.SelectMany(l => TextEntry.Wrap(l, 64)))
         {
@@ -92,13 +92,14 @@ public sealed class UiRenderer
         {
             var rect = UiLayout.DialogueOptionRect(i);
             var selected = i == d.Selected;
+            if (selected) _hud.Fill(rect.X - 4, rect.Y - 1, rect.W, rect.H, Field);   // a bar under the cursor row: the eye finds it first
             if (selected) _hud.Text(">", rect.X, rect.Y, Gold);
             var ink = !d.Options[i].Enabled ? Dim : selected ? Gold : Text;
-            _hud.Text(d.Options[i].Label, rect.X + 8, rect.Y, ink, maxChars: 32);
+            _hud.Text(d.Options[i].Label, rect.X + 8, rect.Y, ink, maxChars: 30);
         }
-        _hud.Text("Up/Down: pick   Enter: choose   Esc: back", 64, y0 + DialogueHeight - 12, Dim);
+        _hud.Text("Up/Down: pick   Enter: choose   Esc: back", 64, y0 + UiLayout.DialogueHintY, Dim);
         if (d.Options.Count > perPage)
-            _hud.Text($"{page + 1}/{(d.Options.Count + perPage - 1) / perPage}", W - 40, y0 + DialogueHeight - 12, Dim);
+            _hud.Text($"{page + 1}/{(d.Options.Count + perPage - 1) / perPage}", W - 40, y0 + UiLayout.DialogueHintY, Dim);
     }
 
     // ---- text entry ----------------------------------------------------------------------
@@ -162,7 +163,7 @@ public sealed class UiRenderer
     // ---- overlay -------------------------------------------------------------------------
 
     public const int OverlayRowHeight = Line;
-    public const int OverlayVisibleRows = 20;
+    public const int OverlayVisibleRows = UiLayout.OverlayVisibleRows;
 
     private void DrawOverlay(Overlay o)
     {
@@ -187,7 +188,7 @@ public sealed class UiRenderer
         }
         if (o.Rows.Count == 0) _hud.Text("nothing here yet", 20, 38, Dim);
 
-        _hud.Text("Tab/arrows: tabs   Up/Down: rows   Enter: act   Esc: close", 20, H - 22, Dim);
+        _hud.Text("Tab/arrows: tabs   Up/Down: rows   Enter: act   Esc: close", 20, H - 24, Dim);
     }
 
     // ---- toasts --------------------------------------------------------------------------
@@ -201,7 +202,7 @@ public sealed class UiRenderer
             var rect = UiLayout.ToastRect(i, t.Text);
             _hud.Panel(rect.X, rect.Y, rect.W, rect.H, dark: t.Kind == ToastKind.Error);
             var ink = t.Kind switch { ToastKind.Success => Green, ToastKind.Error => Red, ToastKind.Attention => Gold, _ => Text };
-            _hud.Text(text, rect.X + 6, rect.Y + 4, ink);
+            _hud.Text(text, rect.X + 6, rect.Y + 3, ink);
         }
     }
 }
