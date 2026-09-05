@@ -17,14 +17,19 @@ public sealed class OfficeUi
     private readonly AppStore _store;
     private readonly Func<IReadOnlyList<CliStatus>> _setup;
     private readonly Action<string> _play;
+    private readonly Action<string>? _openFolder;
+    private readonly OfficePaths? _paths;
     private readonly Actions _actions;
     private long _lastEventSeq = -1;
 
-    public OfficeUi(AppStore store, IForemanApi foreman, IContextApi context, Func<IReadOnlyList<CliStatus>> setup, Action<string> play)
+    public OfficeUi(AppStore store, IForemanApi foreman, IContextApi context, Func<IReadOnlyList<CliStatus>> setup, Action<string> play,
+                    Action<string>? openFolder = null, OfficePaths? paths = null)
     {
         _store = store;
         _setup = setup;
         _play = play;
+        _openFolder = openFolder;
+        _paths = paths;
         _actions = new Actions(foreman, context, Journal, Toasts, Snapshot);
     }
 
@@ -69,6 +74,7 @@ public sealed class OfficeUi
             case { Kind: InteractKind.Whiteboard }: OpenWhiteboard(); break;
             case { Kind: InteractKind.HiringStand }: Pending = _actions.RunAsync(new OpenHiring()); break;
             case { Kind: InteractKind.TicketBoard }: Pending = _actions.RunAsync(new OpenTicketBoard()); break;
+            case { Kind: InteractKind.BossDesk }: State.Push(DialogueScript.BossDesk(_paths)); _play("page"); break;
         }
     }
 
@@ -123,6 +129,10 @@ public sealed class OfficeUi
         {
             case TalkTo t: OpenEmployee(t.EmployeeId); break;
             case Leave: break;
+            case OpenFolder f:
+                _openFolder?.Invoke(f.Path);
+                Toasts.Add($"Opened {Path.GetFileName(f.Path)}", ToastKind.Info, null);
+                break;
             case UiAction a: Pending = _actions.RunAsync(a); break;
             case TextSubmitted ts: Pending = _actions.SubmitAsync(ts); break;
             case ConfirmedAction c: Pending = _actions.ConfirmedAsync(c); break;

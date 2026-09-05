@@ -51,6 +51,7 @@ public static class SpriteGenerator
             ("light", 64, 64, 1, 0, (_, p) => PaintLight(p)),
             ("e_prompt", 9, 9, 1, 0, (_, p) => PaintPrompt(p)),
             ("hiring", 32, Tile, 1, 0, (_, p) => PaintHiring(p)),
+            ("bossdesk", 32, Tile, 1, 0, (_, p) => PaintBossDesk(p)),
             ("tickets", 64, Tile, 1, 0, (_, p) => PaintTickets(p, notes: 4)),
             ("tickets_empty", 64, Tile, 1, 0, (_, p) => PaintTickets(p, notes: 0)),
             ("panel", 12, 12, 1, 0, (_, p) => PaintPanel(p, dark: false)),
@@ -220,6 +221,19 @@ public static class SpriteGenerator
         p.Rect(2, 2, 8, 8, dark ? BorderDark : Panel);
         p.Rect(3, 3, 6, 6, dark ? Frame : Panel);
         if (!dark) { p.Rect(2, 9, 8, 1, Frame); p.Rect(9, 2, 1, 8, Frame); }   // shadowed bottom/right inner edge
+    }
+
+    /// <summary>Your desk: darker wood, a wide monitor that is always on, a gold nameplate.</summary>
+    private static void PaintBossDesk(Painter p)
+    {
+        p.Rect(0, 5, 32, 6, BorderDark);                            // top (dark wood)
+        p.Rect(0, 5, 32, 1, WoodLight);
+        p.Rect(1, 11, 2, 5, BorderDark); p.Rect(29, 11, 2, 5, BorderDark);   // legs
+        p.Rect(11, 0, 12, 5, BorderDark);                           // wide monitor bezel
+        p.Rect(12, 1, 10, 3, Screen);
+        p.Rect(16, 5, 2, 1, BorderDark);                            // stand
+        p.Rect(3, 7, 7, 2, Gold);                                   // nameplate
+        p.Rect(24, 8, 6, 2, PanelLight);                            // keyboard
     }
 
     /// <summary>The ticket board: a cork board in a wooden frame, with pinned notes while tickets are open.</summary>

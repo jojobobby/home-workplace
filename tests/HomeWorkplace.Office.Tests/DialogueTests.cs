@@ -242,3 +242,19 @@ public class TicketDialogueTests
         Assert.Equal(new PostTicket("Software engineer"), d.Options[2].Action);
     }
 }
+
+public class BossDeskDialogueTests
+{
+    [Fact]
+    public void The_boss_desk_offers_the_office_folders()
+    {
+        var paths = OfficePaths.For("Main Office", @"C:\docs");
+        var d = DialogueScript.BossDesk(paths);
+        Assert.Equal("Your desk", d.SpeakerName);
+        Assert.Contains(d.Lines, l => l.Contains("Main Office"));
+        Assert.Equal(new[] { "Open the office folder", "Open the workspaces", "Open the employees", "Leave" }, d.Options.Select(o => o.Label));
+        Assert.Equal(new OpenFolder(paths.Root), d.Options[0].Action);
+        Assert.Equal(new OpenFolder(paths.Workspaces), d.Options[1].Action);
+        Assert.Equal(new OpenFolder(paths.Employees), d.Options[2].Action);
+    }
+}

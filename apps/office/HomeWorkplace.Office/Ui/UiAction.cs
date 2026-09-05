@@ -26,6 +26,9 @@ public sealed record HireRole(string TemplateId) : UiAction;
 public sealed record HireBrain(string TemplateId, string Model, string Label) : UiAction;
 public sealed record Fire(string EmployeeId) : UiAction;
 
+// your desk
+public sealed record OpenFolder(string Path) : UiAction;
+
 // ticket board
 public sealed record OpenTicketBoard : UiAction;
 public sealed record PickTicketRole : UiAction;

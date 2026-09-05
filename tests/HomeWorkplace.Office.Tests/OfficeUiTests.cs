@@ -241,3 +241,26 @@ public class ManagerDecisionToastTests
         Assert.Contains(ui.Toasts.Live, t => t.Text == "Mia planned 2 tasks");
     }
 }
+
+public class BossDeskInteractionTests
+{
+    [Fact]
+    public async Task The_desk_opens_a_folder_through_the_delegate_and_toasts()
+    {
+        var opened = new List<string>();
+        var paths = OfficePaths.For("Main Office", @"C:\docs");
+        var ui = new OfficeUi(new AppStore(), new FakeForemanApi(), new FakeContextApi(), () => Array.Empty<CliStatus>(), _ => { }, opened.Add, paths);
+
+        ui.Interact(new Interactable(InteractKind.BossDesk, null));
+        var d = Assert.IsType<Dialogue>(ui.State.Top);
+        Assert.Equal("Your desk", d.SpeakerName);
+        d.CompleteReveal();
+        d.Select(1);   // workspaces
+        ui.Key(UiKey.Accept);
+        for (var i = 0; i < 20 && ui.Pending is not null; i++) { await Task.Yield(); ui.Update(0.016f); }
+
+        Assert.Equal(new[] { paths.Workspaces }, opened);
+        Assert.Contains(ui.Toasts.Live, t => t.Text.Contains("workspaces", StringComparison.OrdinalIgnoreCase));
+        Assert.False(ui.State.IsOpen);
+    }
+}

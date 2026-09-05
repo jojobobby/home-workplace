@@ -101,6 +101,27 @@ public static class DialogueScript
 
     public static bool IsActive(GoalDto g) => g.Status is GoalState.Planning or GoalState.Running or GoalState.Blocked;
 
+    // ---- your desk ----
+
+    /// <summary>The computer on your desk: the company's folders, opened in Explorer.</summary>
+    public static Dialogue BossDesk(OfficePaths? paths)
+    {
+        if (paths is null)
+            return new Dialogue(null, "Your desk", new[] { "The office folder is not set up on this machine." }, new[] { new DialogueOption("Leave", new Leave()) }) { Portrait = "bossdesk" };
+
+        var lines = new List<string> { $"{System.IO.Path.GetFileName(paths.Root)}: the company lives in" };
+        lines.AddRange(TextEntry.Wrap(paths.Root, 64));
+        lines.Add("workspaces is where the agents do their work, one folder per task.");
+        var options = new List<DialogueOption>
+        {
+            new("Open the office folder", new OpenFolder(paths.Root)),
+            new("Open the workspaces", new OpenFolder(paths.Workspaces)),
+            new("Open the employees", new OpenFolder(paths.Employees)),
+            new("Leave", new Leave()),
+        };
+        return new Dialogue(null, "Your desk", lines, options) { Portrait = "bossdesk" };
+    }
+
     // ---- the ticket board ----
 
     /// <summary>What is pinned: each ticket with the role it is for and how long it has waited.</summary>

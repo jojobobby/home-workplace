@@ -84,14 +84,16 @@ public sealed class OfficeGame : Game
     public float? ExitAfter { get; set; }
 
     public OfficeGame(AppConfig config, ServiceSupervisor supervisor, AppStore store, EventPump pump,
-                      IForemanApi foreman, IContextApi context, CliSetupChecker setup)
+                      IForemanApi foreman, IContextApi context, CliSetupChecker setup, OfficePaths? paths = null)
     {
         _config = config;
         _supervisor = supervisor;
         _store = store;
         _pump = pump;
         _setupChecker = setup;
-        _office = new OfficeUi(store, foreman, context, () => _setupStatus, name => _jukebox?.Play(name, _you?.Tile ?? new TilePos(WorldLayout.Width / 2, WorldLayout.Height / 2)));
+        _office = new OfficeUi(store, foreman, context, () => _setupStatus,
+            name => _jukebox?.Play(name, _you?.Tile ?? new TilePos(WorldLayout.Width / 2, WorldLayout.Height / 2)),
+            OpenInExplorer, paths);
         _debug = config.Office.ShowDebug;
 
         var scale = config.Office.Scale > 0 ? config.Office.Scale : 3;
@@ -103,7 +105,7 @@ public sealed class OfficeGame : Game
             SynchronizeWithVerticalRetrace = true,
         };
         IsMouseVisible = true;
-        Window.Title = "Home Workplace";
+        Window.Title = $"Home Workplace — {config.Office.Name}";
         Window.AllowUserResizing = true;
         Content.RootDirectory = "Content";
 
@@ -312,6 +314,10 @@ public sealed class OfficeGame : Game
                 _you.Teleport(Agent.Centre(_sim.World.TicketSpot));
                 _office.Interact(new Interactable(InteractKind.TicketBoard, null));
                 break;
+            case "desk":
+                _you.Teleport(Agent.Centre(_sim.World.BossSpot));
+                _office.Interact(new Interactable(InteractKind.BossDesk, null));
+                break;
             case "click": _office.OpenEmployee(arg); break;
             case "pick":
                 if (_office.State.Top is Dialogue d) { d.CompleteReveal(); d.Select(int.Parse(arg)); _office.Key(UiKey.Accept); }
@@ -408,11 +414,23 @@ public sealed class OfficeGame : Game
                 if (HitTest.AgentAt(_sim, world) is { } agent) _office.OpenEmployee(agent.Id);
                 else if (OnProp(_sim, PropKind.HiringStand, world)) _office.Interact(new Interactable(InteractKind.HiringStand, null));
                 else if (OnProp(_sim, PropKind.TicketBoard, world)) _office.Interact(new Interactable(InteractKind.TicketBoard, null));
+                else if (OnProp(_sim, PropKind.BossDesk, world)) _office.Interact(new Interactable(InteractKind.BossDesk, null));
                 else if (OnWhiteboard(_sim, world)) _office.OpenWhiteboard();
             }
             _dragFrom = null;
             _dragging = false;
         }
+    }
+
+    /// <summary>The computer on your desk: the folder opens in Explorer.</summary>
+    private static void OpenInExplorer(string path)
+    {
+        try
+        {
+            Directory.CreateDirectory(path);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+        }
+        catch (Exception) { /* nothing to do in-game; the toast already said what was attempted */ }
     }
 
     /// <summary>A prop's tiles plus its sign above (one tile), for clicks.</summary>

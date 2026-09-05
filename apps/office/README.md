@@ -68,13 +68,27 @@ say who, and clicking one opens their dialogue. Tab opens the office menu with l
 employees, tasks (approve / answer / reassign / retry / cancel), goals, activity (Foreman
 events), and setup (the CLI checks and a reload). Destructive actions ask first.
 
+## Where the company lives
+
+Everything about your company is a folder: `DocumentsHome Workplace<office name>`
+with `employees` (one folder per hire), `hiring` (the role templates, seeded from the repo
+the first time and yours to edit), and `data` (Foreman's tasks, goals, events, employee
+state, and `workspaces`, one folder per task, which is where the agents do their work). The
+first launch after this change copies an existing `employees` and Foreman `data` from the
+repo into it, once; the repo copies are left alone.
+
+Your own desk sits bottom-right. Walk up (E) or click it and the computer opens the office
+folder, the workspaces, or the employees in Explorer.
+
 ## Config
 
 `app.json` gains an `office` section:
 
 ```json
-{ "office": { "volume": 0.6, "scale": 0, "showDebug": false } }
+{ "office": { "name": "Main Office", "volume": 0.6, "scale": 0, "showDebug": false } }
 ```
+
+`name` picks the folder under `DocumentsHome Workplace` and the window title.
 
 `scale` 0 means the largest integer scale that fits the window.
 

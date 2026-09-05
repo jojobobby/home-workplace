@@ -183,3 +183,21 @@ public class TicketBoardWorldTests
         Assert.Equal(new Interactable(InteractKind.TicketBoard, null), player.Target(new Simulation(world, seed: 1)));
     }
 }
+
+public class BossDeskWorldTests
+{
+    [Fact]
+    public void The_boss_desk_has_a_spot_in_front_and_is_a_target()
+    {
+        var world = WorldLayout.Generate(new[] { "ada-coder" });
+        var desk = Assert.Single(world.Props, p => p.Kind == PropKind.BossDesk);
+        Assert.Equal(2, desk.Width);
+        Assert.False(world.Map.IsWalkable(desk.Pos));
+        Assert.True(world.Map.IsWalkable(world.BossSpot));
+        Assert.True(world.BossSpot.ManhattanTo(desk.Pos) <= 2);
+
+        var player = new Player(world);
+        player.Teleport(Agent.Centre(world.BossSpot));
+        Assert.Equal(new Interactable(InteractKind.BossDesk, null), player.Target(new Simulation(world, seed: 1)));
+    }
+}

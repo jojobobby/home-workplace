@@ -1,6 +1,6 @@
 namespace HomeWorkplace.Office.Sim;
 
-public enum PropKind { Desk, CoffeeMachine, Whiteboard, Plant, HiringStand, TicketBoard }
+public enum PropKind { Desk, CoffeeMachine, Whiteboard, Plant, HiringStand, TicketBoard, BossDesk }
 
 /// <summary>A placed prop; size in tiles. Desks carry their owner.</summary>
 public sealed record Prop(PropKind Kind, TilePos Pos, int Width, int Height, string? OwnerId);
@@ -11,7 +11,7 @@ public sealed record Desk(string OwnerId, TilePos Pos, TilePos Seat);
 public sealed class World
 {
     public World(TileMap map, IReadOnlyList<Desk> desks, IReadOnlyList<Prop> props,
-                 TilePos spawn, TilePos coffeeSpot, TilePos whiteboardSpot, TilePos hiringSpot, TilePos ticketSpot)
+                 TilePos spawn, TilePos coffeeSpot, TilePos whiteboardSpot, TilePos hiringSpot, TilePos ticketSpot, TilePos bossSpot)
     {
         Map = map;
         Desks = desks;
@@ -21,7 +21,11 @@ public sealed class World
         WhiteboardSpot = whiteboardSpot;
         HiringSpot = hiringSpot;
         TicketSpot = ticketSpot;
+        BossSpot = bossSpot;
     }
+
+    /// <summary>The floor tile in front of your own desk, whose computer opens the company's folders.</summary>
+    public TilePos BossSpot { get; }
 
     /// <summary>The floor tile in front of the hiring stand.</summary>
     public TilePos HiringSpot { get; }
@@ -93,10 +97,12 @@ public static class WorldLayout
         var whiteboard = new Prop(PropKind.Whiteboard, new TilePos(12, 0), 6, 1, null);   // hangs on the top wall
         var stand = new Prop(PropKind.HiringStand, new TilePos(3, 15), 2, 1, null);      // by the door
         var tickets = new Prop(PropKind.TicketBoard, new TilePos(19, 0), 4, 1, null);    // on the top wall, right of the whiteboard
+        var bossDesk = new Prop(PropKind.BossDesk, new TilePos(26, 14), 2, 1, null);     // your desk, bottom-right
         props.Add(coffee);
         props.Add(whiteboard);
         props.Add(stand);
         props.Add(tickets);
+        props.Add(bossDesk);
         props.Add(new Prop(PropKind.Plant, new TilePos(1, 1), 1, 1, null));
         props.Add(new Prop(PropKind.Plant, new TilePos(28, 1), 1, 1, null));
 
@@ -110,6 +116,7 @@ public static class WorldLayout
             coffeeSpot: new TilePos(26, 2),
             whiteboardSpot: new TilePos(14, 1),
             hiringSpot: new TilePos(3, 14),
-            ticketSpot: new TilePos(20, 1));
+            ticketSpot: new TilePos(20, 1),
+            bossSpot: new TilePos(26, 15));
     }
 }
