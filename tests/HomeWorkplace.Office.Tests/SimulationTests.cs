@@ -152,3 +152,62 @@ public class SimulationTests
         Assert.False(sim.Agents["ada"].FacingLeft);   // the door is bottom-left; the desk is to the right
     }
 }
+
+public class TicketClaimTests
+{
+    private static Simulation Seated()
+    {
+        var sim = new Simulation(WorldLayout.Generate(new[] { "ada-coder" }), seed: 3);
+        sim.Apply(new EmployeeAppeared("ada-coder", "Ada", EmployeeStatus.Working, "Fix the parser"));
+        for (var i = 0; i < 60 * 40; i++) sim.Update(1f / 60f);
+        Assert.Equal(Activity.Typing, sim.Agents["ada-coder"].Activity);
+        return sim;
+    }
+
+    [Fact]
+    public void A_claim_sends_the_employee_to_the_board_and_back_to_typing()
+    {
+        var sim = Seated();
+        var ada = sim.Agents["ada-coder"];
+
+        sim.Apply(new TicketClaimed("ada-coder"));
+        Assert.Equal(Activity.WalkingToBoard, ada.Activity);
+
+        var atBoard = false; var page = false; var typing = false;
+        for (var i = 0; i < 60 * 40 && !typing; i++)
+        {
+            sim.Update(1f / 60f);
+            if (ada.Activity == Activity.AtBoard)
+            {
+                atBoard = true;
+                Assert.Equal(sim.World.TicketSpot, ada.Tile);
+                Assert.Equal(BubbleKind.Exclaim, ada.Bubble?.Kind);
+            }
+            if (sim.Moments.Any(m => m.Kind == MomentKind.Sound && m.Detail == "page")) page = true;
+            typing = atBoard && ada.Activity == Activity.Typing;
+        }
+        Assert.True(atBoard, "visited the board");
+        Assert.True(page, "took the ticket with a page sound");
+        Assert.True(typing, "went back to typing");
+        Assert.False(ada.OnErrand);
+    }
+
+    [Fact]
+    public void A_status_change_during_the_errand_waits_until_the_errand_is_done()
+    {
+        var sim = Seated();
+        var ada = sim.Agents["ada-coder"];
+        sim.Apply(new TicketClaimed("ada-coder"));
+        sim.Apply(new EmployeeStatusChanged("ada-coder", EmployeeStatus.Working, "Fix the parser", null));
+        Assert.Equal(Activity.WalkingToBoard, ada.Activity);   // not re-aimed at the desk
+    }
+
+    [Fact]
+    public void The_open_ticket_count_is_kept_for_the_board_sprite()
+    {
+        var sim = Seated();
+        Assert.Equal(0, sim.OpenTickets);
+        sim.Apply(new TicketsChanged(3));
+        Assert.Equal(3, sim.OpenTickets);
+    }
+}

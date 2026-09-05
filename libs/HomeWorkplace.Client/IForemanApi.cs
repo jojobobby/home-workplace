@@ -24,6 +24,10 @@ public interface IForemanApi
     Task<TaskDto> RetryAsync(string id, CancellationToken ct = default);
     Task<TaskDto> CancelTaskAsync(string id, CancellationToken ct = default);
 
+    // ---- tickets ----
+    Task<TaskDto> CreateTicketAsync(CreateTicketRequest request, CancellationToken ct = default);
+    Task<IReadOnlyList<TaskDto>> GetTicketsAsync(CancellationToken ct = default);
+
     Task<GoalDto> CreateGoalAsync(CreateGoalRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<GoalDto>> GetGoalsAsync(CancellationToken ct = default);
     Task<GoalDto> GetGoalAsync(string id, CancellationToken ct = default);

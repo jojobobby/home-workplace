@@ -51,6 +51,8 @@ public sealed class FakeForemanApi : IForemanApi
     public Task<TaskDto> ReassignAsync(string id, string assignee, CancellationToken ct = default) => Rec($"reassign:{id}:{assignee}", Tasks[id]);
     public Task<TaskDto> RetryAsync(string id, CancellationToken ct = default) => Rec("retry:" + id, Tasks[id]);
     public Task<TaskDto> CancelTaskAsync(string id, CancellationToken ct = default) => Rec("cancelTask:" + id, Tasks[id]);
+    public Task<TaskDto> CreateTicketAsync(CreateTicketRequest r, CancellationToken ct = default) { var t = Task("ticket" + Tasks.Count, assignee: "") with { Title = r.Title, Role = r.Role }; Tasks[t.Id] = t; return Rec($"createTicket:{r.Title}:{r.Role}", t); }
+    public Task<IReadOnlyList<TaskDto>> GetTicketsAsync(CancellationToken ct = default) => Rec("tickets", (IReadOnlyList<TaskDto>)Tasks.Values.Where(t => t.Assignee.Length == 0 && t.Status == TaskState.Queued).ToList());
     public Task<GoalDto> CreateGoalAsync(CreateGoalRequest r, CancellationToken ct = default) => Rec($"createGoal:{r.Manager}:{r.Title}:{r.Brief}:{r.BudgetUsd}", Goal("newgoal") with { Title = r.Title });
     public Task<IReadOnlyList<GoalDto>> GetGoalsAsync(CancellationToken ct = default) => Rec("goals", (IReadOnlyList<GoalDto>)Goals.Values.ToList());
     public Task<GoalDto> GetGoalAsync(string id, CancellationToken ct = default) => Rec("goal:" + id, Goals[id]);

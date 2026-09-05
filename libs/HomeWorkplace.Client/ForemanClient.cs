@@ -40,6 +40,10 @@ public sealed class ForemanClient : IForemanApi
     public Task<TaskDto> RetryAsync(string id, CancellationToken ct = default) => PostAsync<TaskDto>($"/tasks/{id}/retry", null, ct);
     public Task<TaskDto> CancelTaskAsync(string id, CancellationToken ct = default) => PostAsync<TaskDto>($"/tasks/{id}/cancel", null, ct);
 
+    // ---- tickets ----
+    public Task<TaskDto> CreateTicketAsync(CreateTicketRequest request, CancellationToken ct = default) => PostAsync<TaskDto>("/tickets", request, ct);
+    public Task<IReadOnlyList<TaskDto>> GetTicketsAsync(CancellationToken ct = default) => GetAsync<IReadOnlyList<TaskDto>>("/tickets", ct);
+
     // ---- goals ----
     public Task<GoalDto> CreateGoalAsync(CreateGoalRequest request, CancellationToken ct = default) => PostAsync<GoalDto>("/goals", request, ct);
     public Task<IReadOnlyList<GoalDto>> GetGoalsAsync(CancellationToken ct = default) => GetAsync<IReadOnlyList<GoalDto>>("/goals", ct);

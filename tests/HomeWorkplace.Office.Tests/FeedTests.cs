@@ -102,3 +102,28 @@ public class FeedTests
         Assert.Empty(cmds);
     }
 }
+
+public class TicketFeedTests
+{
+    private static EmployeeDto Ada(EmployeeStatus status = EmployeeStatus.Awake) => new() { Id = "ada", Name = "Ada", Role = "Software engineer", Status = status };
+    private static TaskDto Ticket(string id, string assignee = "") => new() { Id = id, Title = "T " + id, Assignee = assignee, Status = TaskState.Queued };
+
+    [Fact]
+    public void A_claim_event_and_the_open_ticket_count_reach_the_simulation()
+    {
+        var feed = new ForemanFeed();
+        var employees = new Dictionary<string, EmployeeDto> { ["ada"] = Ada() };
+        var tasks = new Dictionary<string, TaskDto> { ["t1"] = Ticket("t1"), ["t2"] = Ticket("t2") };
+
+        var first = feed.Next(employees, tasks, Array.Empty<EventDto>());
+        Assert.Contains(first, c => c is TicketsChanged { Count: 2 });
+
+        var again = feed.Next(employees, tasks, Array.Empty<EventDto>());
+        Assert.DoesNotContain(again, c => c is TicketsChanged);   // unchanged: not repeated
+
+        tasks["t1"] = Ticket("t1", assignee: "ada");
+        var claimed = feed.Next(employees, tasks, new[] { new EventDto { Seq = 1, Type = "task.claimed", EmployeeId = "ada", TaskId = "t1" } });
+        Assert.Contains(claimed, c => c is TicketClaimed { Id: "ada" });
+        Assert.Contains(claimed, c => c is TicketsChanged { Count: 1 });
+    }
+}

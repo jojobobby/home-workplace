@@ -163,3 +163,23 @@ public class HiringStandTests
         Assert.Equal(InteractKind.Employee, player.Target(sim)!.Value.Kind);
     }
 }
+
+public class TicketBoardWorldTests
+{
+    [Fact]
+    public void The_ticket_board_hangs_on_the_top_wall_with_a_spot_under_it()
+    {
+        var world = WorldLayout.Generate(new[] { "ada-coder" });
+        var board = Assert.Single(world.Props, p => p.Kind == PropKind.TicketBoard);
+        Assert.Equal(0, board.Pos.Y);
+        Assert.Equal(4, board.Width);
+        var whiteboard = world.Props.Single(p => p.Kind == PropKind.Whiteboard);
+        Assert.True(board.Pos.X >= whiteboard.Pos.X + whiteboard.Width, "right of the whiteboard");
+        Assert.True(world.Map.IsWalkable(world.TicketSpot));
+        Assert.Equal(1, world.TicketSpot.Y);
+
+        var player = new Player(world);
+        player.Teleport(Agent.Centre(world.TicketSpot));
+        Assert.Equal(new Interactable(InteractKind.TicketBoard, null), player.Target(new Simulation(world, seed: 1)));
+    }
+}

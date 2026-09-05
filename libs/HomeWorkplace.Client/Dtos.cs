@@ -47,7 +47,10 @@ public sealed record TaskDto
     public string Id { get; init; } = "";
     public string Title { get; init; } = "";
     public string Brief { get; init; } = "";
+    /// <summary>Empty while the task is a ticket on the board.</summary>
     public string Assignee { get; init; } = "";
+    /// <summary>The role a ticket is meant for; null = anyone.</summary>
+    public string? Role { get; init; }
     public TaskState Status { get; init; }
     public bool RequiresApproval { get; init; }
     public bool AwaitingApproval { get; init; }
@@ -113,6 +116,7 @@ public sealed record RoomFilesDto(string Room, IReadOnlyList<FileDto> Files);
 public sealed record ProblemDetailsDto(string? Type, string? Title, int? Status, string? Detail, Dictionary<string, string[]>? Errors);
 
 public sealed record CreateTaskRequest(string Title, string Brief, string Assignee, bool RequiresApproval = false);
+public sealed record CreateTicketRequest(string Title, string Brief, string? Role, bool RequiresApproval = false);
 public sealed record CreateGoalRequest(string Title, string Brief, string Manager, decimal BudgetUsd);
 
 // ---- hiring ----

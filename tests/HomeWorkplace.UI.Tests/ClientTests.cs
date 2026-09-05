@@ -236,3 +236,33 @@ public class HiringClientTests
         Assert.Equal("/employees/sam-engineer/fire", stub2.LastPathAndQuery);
     }
 }
+
+public class TicketClientTests
+{
+    private static (ForemanClient Client, StubHandler Stub) Foreman(string body = "{}", HttpStatusCode status = HttpStatusCode.OK)
+    {
+        var stub = new StubHandler { Body = body, Status = status };
+        return (new ForemanClient(new HttpClient(stub) { BaseAddress = new Uri("http://foreman.test") }), stub);
+    }
+
+    [Fact]
+    public async Task Create_ticket_posts_title_brief_and_role()
+    {
+        var (client, stub) = Foreman("""{"id":"t9","title":"Fix the parser","brief":"b","assignee":"","role":"Software engineer","status":0,"room":"task-t9"}""", HttpStatusCode.Created);
+        var ticket = await client.CreateTicketAsync(new CreateTicketRequest("Fix the parser", "b", "Software engineer"));
+        Assert.Equal(HttpMethod.Post, stub.LastMethod);
+        Assert.Equal("/tickets", stub.LastPathAndQuery);
+        Assert.Contains("\"role\":\"Software engineer\"", stub.LastBody);
+        Assert.Equal("", ticket.Assignee);
+        Assert.Equal("Software engineer", ticket.Role);
+    }
+
+    [Fact]
+    public async Task Get_tickets_lists_the_board()
+    {
+        var (client, stub) = Foreman("""[{"id":"t9","title":"Fix the parser","brief":"b","assignee":"","role":null,"status":0,"room":"task-t9"}]""");
+        var tickets = await client.GetTicketsAsync();
+        Assert.Equal("/tickets", stub.LastPathAndQuery);
+        Assert.Null(Assert.Single(tickets).Role);
+    }
+}
