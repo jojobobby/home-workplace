@@ -304,6 +304,10 @@ public sealed class OfficeGame : Game
                     _you.Teleport(agent.Position + new Vector2(Agent.TileSize, 0));
                 break;
             case "talk": _office.Interact(_you.Target(_sim)); break;
+            case "stand":
+                _you.Teleport(Agent.Centre(_sim.World.HiringSpot));
+                _office.Interact(new Interactable(InteractKind.HiringStand, null));
+                break;
             case "click": _office.OpenEmployee(arg); break;
             case "pick":
                 if (_office.State.Top is Dialogue d) { d.CompleteReveal(); d.Select(int.Parse(arg)); _office.Key(UiKey.Accept); }

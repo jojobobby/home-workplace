@@ -33,6 +33,16 @@ Dev flags for unattended runs: `--clock HH:mm` fixes the office clock (see night
 at noon), `--frames-every N` saves a frame every N seconds, `--exit-after N` quits, and
 `--smoke-script "walk ada-coder;talk;pick 0;type Hello;enter;esc;tab;wait 2"` drives the UI.
 
+## Hiring
+
+The company starts with nobody. The stand by the door (walk up and press E, or click it)
+lists the roles under `hiring/`; pick one, then a brain, then type a name. Brains are the
+models Foreman knows (Claude Haiku 4.5, Sonnet 5, Opus 4.8, Opus 5, Fable 5.1; GPT-5
+Codex), each with an approximate price per day at API list prices, which is notional on a
+subscription. A brain whose CLI is not signed in (see the Setup tab) shows "(sign in)" and
+cannot be picked. The hire walks in at once. "Let go" in an employee's dialogue archives
+their folder under `employees/.former/`.
+
 ## Managing the company
 
 Walk up to an employee (or click them) and a dialogue box opens at the bottom: they say what

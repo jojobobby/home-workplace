@@ -95,7 +95,7 @@ public sealed class Actions
                 return Ok($"Topped up \"{GoalTitle(a.GoalId)}\" by ${amount:0.00}", ToastKind.Success);
             case HireBrain a:
                 var hired = await _foreman.HireAsync(new HireRequest(a.TemplateId, a.Model, v[0].Trim()));
-                return Ok($"Hired {hired.Name} as {hired.Role} on {a.Label}", ToastKind.Success);
+                return Ok($"Hired {hired.Name} as {hired.Role}", ToastKind.Success);   // short enough for a toast
             default:
                 return Fail("nothing to submit");
         }

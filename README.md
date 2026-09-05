@@ -77,14 +77,17 @@ Built:
 6. **In-game management UI (4b)** — walk or click to an employee, RPG dialogue box
    (give tasks, approve, answer, wake/sleep, goals and budgets), Tab overlay with lists,
    whiteboard goals, toasts for approvals. The Blazor shell is no longer the primary app.
+7. **Hiring stand (4d)** — the company starts empty; hire a role on a brain your
+   subscriptions unlock (Haiku, Sonnet, Opus, Fable, GPT-5 Codex) with an approximate
+   daily cost; let people go. Role templates live in `hiring/`.
 
 Next:
 
-7. **Art and sound pipeline (4c)** — real sprite sheets (via the vfx-artist employee) and music
+8. **Art and sound pipeline (4c)** — real sprite sheets (via the vfx-artist employee) and music
    replacing the procedural placeholders.
-8. **Notifications** — email, push, AI-voice calls, approvals.
-9. **VM/sandbox layer** — per-employee scoped control of a machine.
-10. **Phone app** — the same UI library, built for Android/iOS.
+9. **Notifications** — email, push, AI-voice calls, approvals.
+10. **VM/sandbox layer** — per-employee scoped control of a machine.
+11. **Phone app** — the same UI library, built for Android/iOS.
 
 ## Note on subscription use
 
