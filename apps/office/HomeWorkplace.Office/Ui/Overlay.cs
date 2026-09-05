@@ -65,7 +65,11 @@ public sealed class Overlay : ILayer
             case UiKeyKind.PageDown: Select(Selected + 10); break;
             case UiKeyKind.Accept:
                 if (SelectedRow is { } row && row.Actions.Count > 0)
-                    return LayerResult.Push(new Dialogue(null, row.Text, new[] { row.Text }, row.Actions.Append(new DialogueOption("Leave", new Leave())).ToList()));
+                {
+                    var menu = new Dialogue(null, row.Text, new[] { row.Text }, row.Actions.Append(new DialogueOption("Leave", new Leave())).ToList());
+                    menu.CompleteReveal();   // a menu, not a speech: no typewriter
+                    return LayerResult.Push(menu);
+                }
                 break;
             case UiKeyKind.Back:
                 return LayerResult.Pop();

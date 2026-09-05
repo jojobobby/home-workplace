@@ -81,17 +81,15 @@ public sealed class UiRenderer
         if (!d.IsRevealed) return;
 
         // options in two columns of four, paged so the selection is visible
-        const int perPage = 8;
+        const int perPage = UiLayout.DialogueOptionsPerPage;
         var page = d.Selected / perPage;
         var first = page * perPage;
         for (var i = first; i < Math.Min(d.Options.Count, first + perPage); i++)
         {
-            var slot = i - first;
-            var ox = 64 + (slot / 4) * 200;
-            var oy = y0 + 62 + (slot % 4) * Line;
+            var rect = UiLayout.DialogueOptionRect(i);
             var selected = i == d.Selected;
-            if (selected) _hud.Text(">", ox, oy, Gold);
-            _hud.Text(d.Options[i].Label, ox + 8, oy, selected ? Gold : Text, maxChars: 30);
+            if (selected) _hud.Text(">", rect.X, rect.Y, Gold);
+            _hud.Text(d.Options[i].Label, rect.X + 8, rect.Y, selected ? Gold : Text, maxChars: 30);
         }
         if (d.Options.Count > perPage)
             _hud.Text($"{page + 1}/{(d.Options.Count + perPage - 1) / perPage}", W - 40, y0 + DialogueHeight - 12, Dim);
@@ -164,27 +162,24 @@ public sealed class UiRenderer
     {
         _hud.Panel(8, 8, W - 16, H - 16);
 
-        var x = 20;
         foreach (var tab in Enum.GetValues<OverlayTab>())
         {
-            var name = tab.ToString();
+            var rect = UiLayout.OverlayTabRect(tab);
             var selected = tab == o.Tab;
-            if (selected) _hud.Fill(x - 4, 16, PixelFont.Measure(name) + 7, Line + 2, Highlight);
-            _hud.Text(name, x, 18, selected ? Ink : Dim);
-            x += PixelFont.Measure(name) + 16;
+            if (selected) _hud.Fill(rect.X, rect.Y, rect.W, rect.H, Highlight);
+            _hud.Text(tab.ToString(), rect.X + 4, rect.Y + 2, selected ? Ink : Dim);
         }
         _hud.Fill(16, 32, W - 32, 1, Highlight);
 
-        var first = Math.Max(0, Math.Min(o.Selected - OverlayVisibleRows + 1, o.Rows.Count - OverlayVisibleRows));
-        var y = 38;
-        for (var i = first; i < Math.Min(o.Rows.Count, first + OverlayVisibleRows); i++)
+        var first = UiLayout.OverlayFirstRow(o);
+        for (var i = first; i < Math.Min(o.Rows.Count, first + UiLayout.OverlayVisibleRows); i++)
         {
+            var rect = UiLayout.OverlayRowRect(i - first);
             var selected = i == o.Selected;
-            if (selected) _hud.Fill(16, y - 2, W - 32, Line, Highlight);
-            _hud.Text(o.Rows[i].Text, 20, y, selected ? Ink : Text, maxChars: 74);
-            y += Line;
+            if (selected) _hud.Fill(rect.X, rect.Y, rect.W, rect.H, Highlight);
+            _hud.Text(o.Rows[i].Text, rect.X + 4, rect.Y + 2, selected ? Ink : Text, maxChars: 74);
         }
-        if (o.Rows.Count == 0) _hud.Text("nothing here yet", 20, y, Dim);
+        if (o.Rows.Count == 0) _hud.Text("nothing here yet", 20, 38, Dim);
 
         _hud.Text("Tab/arrows: tabs   Up/Down: rows   Enter: act   Esc: close", 20, H - 22, Dim);
     }
@@ -193,16 +188,14 @@ public sealed class UiRenderer
 
     private void DrawToasts(Toasts toasts)
     {
-        var y = 8;
-        foreach (var t in toasts.Live)
+        for (var i = 0; i < toasts.Live.Count; i++)
         {
-            var text = t.Text.Length > 44 ? t.Text[..44] : t.Text;
-            var w = PixelFont.Measure(text) + 12;
-            var x = W - 8 - w;
-            _hud.Panel(x, y, w, 15, dark: t.Kind == ToastKind.Error);
+            var t = toasts.Live[i];
+            var text = UiLayout.ToastText(t.Text);
+            var rect = UiLayout.ToastRect(i, t.Text);
+            _hud.Panel(rect.X, rect.Y, rect.W, rect.H, dark: t.Kind == ToastKind.Error);
             var ink = t.Kind switch { ToastKind.Success => Green, ToastKind.Error => Red, ToastKind.Attention => Gold, _ => Text };
-            _hud.Text(text, x + 6, y + 4, ink);
-            y += 17;
+            _hud.Text(text, rect.X + 6, rect.Y + 4, ink);
         }
     }
 }

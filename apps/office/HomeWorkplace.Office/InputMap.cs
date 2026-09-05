@@ -28,4 +28,27 @@ public static class InputMap
 
     /// <summary>Camera pan for a mouse drag in native pixels: the world follows the cursor.</summary>
     public static Vector2 DragFor(Vector2 from, Vector2 to, int zoom) => (from - to) / Math.Max(1, zoom);
+
+    /// <summary>Keyboard keys that mean something to the UI layers; letters arrive as text input instead.</summary>
+    public static Ui.UiKey? UiKeyFor(Microsoft.Xna.Framework.Input.Keys key) => UiKeys.For(key);
+}
+
+public static class UiKeys
+{
+    /// <summary>Keyboard keys that mean something to the UI layers; letters arrive as text input instead.</summary>
+    public static Ui.UiKey? For(Microsoft.Xna.Framework.Input.Keys key) => key switch
+    {
+        Microsoft.Xna.Framework.Input.Keys.Enter => Ui.UiKey.Accept,
+        Microsoft.Xna.Framework.Input.Keys.Escape => Ui.UiKey.Back,
+        Microsoft.Xna.Framework.Input.Keys.Tab => Ui.UiKey.Tab,
+        Microsoft.Xna.Framework.Input.Keys.Back => Ui.UiKey.Backspace,
+        Microsoft.Xna.Framework.Input.Keys.Delete => Ui.UiKey.Delete,
+        Microsoft.Xna.Framework.Input.Keys.Up => Ui.UiKey.Up,
+        Microsoft.Xna.Framework.Input.Keys.Down => Ui.UiKey.Down,
+        Microsoft.Xna.Framework.Input.Keys.Left => Ui.UiKey.Left,
+        Microsoft.Xna.Framework.Input.Keys.Right => Ui.UiKey.Right,
+        Microsoft.Xna.Framework.Input.Keys.PageUp => Ui.UiKey.PageUp,
+        Microsoft.Xna.Framework.Input.Keys.PageDown => Ui.UiKey.PageDown,
+        _ => null,
+    };
 }

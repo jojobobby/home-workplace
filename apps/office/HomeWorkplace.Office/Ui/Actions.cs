@@ -133,6 +133,10 @@ public sealed class Actions
         {
             return Fail("Foreman is unreachable: " + ex.Message);
         }
+        catch (Exception ex)
+        {
+            return Fail(ex.Message);   // the office must never die because one action blew up
+        }
         finally
         {
             Volatile.Write(ref _inFlight, 0);
