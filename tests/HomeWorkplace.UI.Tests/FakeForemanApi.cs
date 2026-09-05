@@ -32,6 +32,16 @@ public sealed class FakeForemanApi : IForemanApi
     public Task SleepAsync(string id, CancellationToken ct = default) { Calls.Add("sleep:" + id); return System.Threading.Tasks.Task.CompletedTask; }
     public Task ResetAsync(string id, CancellationToken ct = default) { Calls.Add("reset:" + id); return System.Threading.Tasks.Task.CompletedTask; }
 
+    public HiringDto Hiring { get; set; } = new(Array.Empty<HiringTemplateDto>(), Array.Empty<BrainDto>());
+    public Task<HiringDto> GetHiringAsync(CancellationToken ct = default) => System.Threading.Tasks.Task.FromResult(Rec("hiring", Hiring));
+    public Task<EmployeeDto> HireAsync(HireRequest r, CancellationToken ct = default)
+    {
+        var e = Employee(r.Name.ToLowerInvariant() + "-" + r.TemplateId) with { Name = r.Name, Model = r.Model };
+        Employees[e.Id] = e;
+        return System.Threading.Tasks.Task.FromResult(Rec($"hire:{r.TemplateId}:{r.Model}:{r.Name}", e));
+    }
+    public Task FireAsync(string id, CancellationToken ct = default) { Calls.Add("fire:" + id); Employees.Remove(id); return System.Threading.Tasks.Task.CompletedTask; }
+
     public Task<TaskDto> CreateTaskAsync(CreateTaskRequest request, CancellationToken ct = default) { var t = Task("new", assignee: request.Assignee); Tasks[t.Id] = t; return System.Threading.Tasks.Task.FromResult(Rec("createTask:" + request.Title, t)); }
     public Task<IReadOnlyList<TaskDto>> GetTasksAsync(TaskState? status = null, string? assignee = null, CancellationToken ct = default) => System.Threading.Tasks.Task.FromResult(Rec("tasks", (IReadOnlyList<TaskDto>)Tasks.Values.ToList()));
     public Task<TaskDto> GetTaskAsync(string id, CancellationToken ct = default) => Tasks.TryGetValue(id, out var t) ? System.Threading.Tasks.Task.FromResult(Rec("task:" + id, t)) : throw new ApiException(404, "Not Found", null);

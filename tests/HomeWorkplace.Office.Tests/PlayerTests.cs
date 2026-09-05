@@ -120,3 +120,45 @@ public class CameraFollowTests
         Assert.Equal(new Vector2(120, 68), camera.ViewTopLeft);
     }
 }
+
+public class HiringStandTests
+{
+    [Fact]
+    public void The_stand_sits_by_the_door_with_a_walkable_spot_in_front()
+    {
+        var world = WorldLayout.Generate(new[] { "ada-coder" });
+        var stand = Assert.Single(world.Props, p => p.Kind == PropKind.HiringStand);
+        Assert.Equal(2, stand.Width);
+        Assert.True(stand.Pos.ManhattanTo(world.Spawn) <= 4, "the stand is next to the door");
+        Assert.False(world.Map.IsWalkable(stand.Pos));
+        Assert.True(world.Map.IsWalkable(world.HiringSpot));
+        Assert.True(world.HiringSpot.ManhattanTo(stand.Pos) <= 2);
+    }
+
+    [Fact]
+    public void An_empty_company_still_has_an_office()
+    {
+        var world = WorldLayout.Generate(Array.Empty<string>());
+        Assert.Empty(world.Desks);
+        Assert.Contains(world.Props, p => p.Kind == PropKind.HiringStand);
+        Assert.Contains(world.Props, p => p.Kind == PropKind.Whiteboard);
+        Assert.Contains(world.Props, p => p.Kind == PropKind.CoffeeMachine);
+        var sim = new Simulation(world, seed: 1);
+        sim.Update(1f / 60f);
+        Assert.Empty(sim.Agents);
+    }
+
+    [Fact]
+    public void Standing_at_the_stand_targets_it_unless_an_employee_is_closer()
+    {
+        var world = WorldLayout.Generate(new[] { "ada-coder" });
+        var sim = new Simulation(world, seed: 1);
+        var player = new Player(world);
+
+        player.Teleport(Agent.Centre(world.HiringSpot));
+        Assert.Equal(new Interactable(InteractKind.HiringStand, null), player.Target(sim));
+
+        sim.Apply(new EmployeeAppeared("ada-coder", "Ada", EmployeeStatus.Awake, null));   // spawns at the door, in reach
+        Assert.Equal(InteractKind.Employee, player.Target(sim)!.Value.Kind);
+    }
+}

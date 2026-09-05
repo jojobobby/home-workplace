@@ -10,6 +10,11 @@ public interface IForemanApi
     Task SleepAsync(string id, CancellationToken ct = default);
     Task ResetAsync(string id, CancellationToken ct = default);
 
+    // ---- hiring ----
+    Task<HiringDto> GetHiringAsync(CancellationToken ct = default);
+    Task<EmployeeDto> HireAsync(HireRequest request, CancellationToken ct = default);
+    Task FireAsync(string id, CancellationToken ct = default);
+
     Task<TaskDto> CreateTaskAsync(CreateTaskRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<TaskDto>> GetTasksAsync(TaskState? status = null, string? assignee = null, CancellationToken ct = default);
     Task<TaskDto> GetTaskAsync(string id, CancellationToken ct = default);

@@ -34,6 +34,15 @@ public sealed class FakeForemanApi : IForemanApi
     public Task WakeAsync(string id, string? until = null, CancellationToken ct = default) => Rec("wake:" + id);
     public Task SleepAsync(string id, CancellationToken ct = default) => Rec("sleep:" + id);
     public Task ResetAsync(string id, CancellationToken ct = default) => Rec("reset:" + id);
+    public HiringDto Hiring { get; set; } = new(Array.Empty<HiringTemplateDto>(), Array.Empty<BrainDto>());
+    public Task<HiringDto> GetHiringAsync(CancellationToken ct = default) => Rec("hiring", Hiring);
+    public Task<EmployeeDto> HireAsync(HireRequest r, CancellationToken ct = default)
+    {
+        var e = Employee(r.Name.ToLowerInvariant() + "-" + r.TemplateId) with { Name = r.Name, Model = r.Model };
+        Employees[e.Id] = e;
+        return Rec($"hire:{r.TemplateId}:{r.Model}:{r.Name}", e);
+    }
+    public Task FireAsync(string id, CancellationToken ct = default) { Employees.Remove(id); return Rec("fire:" + id); }
     public Task<TaskDto> CreateTaskAsync(CreateTaskRequest r, CancellationToken ct = default) => Rec($"createTask:{r.Assignee}:{r.Title}:{r.Brief}", Task("new", assignee: r.Assignee) with { Title = r.Title });
     public Task<IReadOnlyList<TaskDto>> GetTasksAsync(TaskState? status = null, string? assignee = null, CancellationToken ct = default) => Rec("tasks", (IReadOnlyList<TaskDto>)Tasks.Values.ToList());
     public Task<TaskDto> GetTaskAsync(string id, CancellationToken ct = default) => Rec("task:" + id, Tasks[id]);

@@ -19,6 +19,11 @@ public sealed class ForemanClient : IForemanApi
     public Task SleepAsync(string id, CancellationToken ct = default) => PostNoContentAsync($"/employees/{id}/sleep", ct);
     public Task ResetAsync(string id, CancellationToken ct = default) => PostNoContentAsync($"/employees/{id}/reset", ct);
 
+    // ---- hiring ----
+    public Task<HiringDto> GetHiringAsync(CancellationToken ct = default) => GetAsync<HiringDto>("/hiring", ct);
+    public Task<EmployeeDto> HireAsync(HireRequest request, CancellationToken ct = default) => PostAsync<EmployeeDto>("/hiring", request, ct);
+    public Task FireAsync(string id, CancellationToken ct = default) => PostNoContentAsync($"/employees/{id}/fire", ct);
+
     // ---- tasks ----
     public Task<TaskDto> CreateTaskAsync(CreateTaskRequest request, CancellationToken ct = default) => PostAsync<TaskDto>("/tasks", request, ct);
     public Task<IReadOnlyList<TaskDto>> GetTasksAsync(TaskState? status = null, string? assignee = null, CancellationToken ct = default)

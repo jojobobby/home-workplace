@@ -114,3 +114,11 @@ public sealed record ProblemDetailsDto(string? Type, string? Title, int? Status,
 
 public sealed record CreateTaskRequest(string Title, string Brief, string Assignee, bool RequiresApproval = false);
 public sealed record CreateGoalRequest(string Title, string Brief, string Manager, decimal BudgetUsd);
+
+// ---- hiring ----
+public sealed record BrainDto(string Model, Vendor Vendor, string Label);
+/// <summary>Approximate cost of one role on one brain: template tokens × list price. Notional on a subscription.</summary>
+public sealed record BrainCostDto(string Model, Vendor Vendor, string Label, decimal UsdPerRun, decimal UsdPerDay);
+public sealed record HiringTemplateDto(string Id, string Role, string Description, IReadOnlyList<BrainCostDto> Brains);
+public sealed record HiringDto(IReadOnlyList<HiringTemplateDto> Templates, IReadOnlyList<BrainDto> Brains);
+public sealed record HireRequest(string TemplateId, string Model, string Name);
