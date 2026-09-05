@@ -50,6 +50,8 @@ public static class SpriteGenerator
             ("bubble_dots", Tile, Tile, 1, 0, (_, p) => PaintBubble(p, '.')),
             ("light", 64, 64, 1, 0, (_, p) => PaintLight(p)),
             ("e_prompt", 9, 9, 1, 0, (_, p) => PaintPrompt(p)),
+            ("panel", 12, 12, 1, 0, (_, p) => PaintPanel(p, dark: false)),
+            ("panel_dark", 12, 12, 1, 0, (_, p) => PaintPanel(p, dark: true)),
         };
         foreach (var id in ids)
         {
@@ -205,6 +207,16 @@ public static class SpriteGenerator
         for (var y = 0; y < PixelFont.GlyphHeight; y++)
         for (var x = 0; x < PixelFont.GlyphWidth; x++)
             if (g[y][x] == '#') p.Px(5 + x, 2 + y, Ink);
+    }
+
+    /// <summary>A 12×12 nine-slice panel with a 3 px border: dark outline, lit inner edge, filled centre.</summary>
+    private static void PaintPanel(Painter p, bool dark)
+    {
+        p.Rect(0, 0, 12, 12, BorderDark);
+        p.Rect(1, 1, 10, 10, dark ? Panel : BorderLight);
+        p.Rect(2, 2, 8, 8, dark ? BorderDark : Panel);
+        p.Rect(3, 3, 6, 6, dark ? Frame : Panel);
+        if (!dark) { p.Rect(2, 9, 8, 1, Frame); p.Rect(9, 2, 1, 8, Frame); }   // shadowed bottom/right inner edge
     }
 
     /// <summary>A small key cap with an E on it: the "talk" prompt over the player's target.</summary>

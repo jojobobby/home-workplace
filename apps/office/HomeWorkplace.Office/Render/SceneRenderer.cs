@@ -51,6 +51,8 @@ public sealed class SceneRenderer : IDisposable
     }
 
     public RenderTarget2D Target => _target;
+    public Texture2D AtlasTexture => _atlasTexture;
+    public Manifest Manifest => _manifest;
     public ParticleSystem Particles => _particles;
 
     /// <summary>Ambient dust drifting over the floor. Off by default so golden frames stay stable.</summary>

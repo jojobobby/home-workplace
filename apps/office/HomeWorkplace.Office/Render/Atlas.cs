@@ -32,6 +32,9 @@ public sealed class Manifest
 
     public Animation Agent(string employeeId, Anim anim) => Get(AgentName(employeeId, anim));
 
+    public bool TryAgent(string employeeId, Anim anim, out Animation animation)
+        => _animations.TryGetValue(AgentName(employeeId, anim), out animation!);
+
     public static string AgentName(string employeeId, Anim anim) => $"agent:{employeeId}:{anim.ToString().ToLowerInvariant()}";
 }
 

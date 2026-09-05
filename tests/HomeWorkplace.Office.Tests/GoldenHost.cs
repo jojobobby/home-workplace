@@ -1,5 +1,6 @@
 using HomeWorkplace.Office.Render;
 using HomeWorkplace.Office.Sim;
+using HomeWorkplace.Office.Ui;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -19,7 +20,11 @@ public sealed class GoldenHost : Game
     private SceneRenderer? _renderer;
     private string _rendererIds = "";
     private (Simulation Sim, TimeOnly Clock, IReadOnlyList<Shift> Shifts, int Frames)? _pending;
+    private (Simulation Sim, TimeOnly Clock, UiState Ui, Toasts Toasts, Player? Player, float Time)? _pendingUi;
     private Frame? _result;
+    private RenderTarget2D? _composite;
+    private Hud? _hud;
+    private UiRenderer? _ui;
 
     public GoldenHost()
     {
@@ -41,24 +46,57 @@ public sealed class GoldenHost : Game
         return _result ?? throw new InvalidOperationException("the frame was not rendered");
     }
 
+    /// <summary>Render the scene at 10:00 with the UI drawn over it, composited at scale 1 (player and E prompt included when given).</summary>
+    public Frame RenderUi(Simulation sim, UiState ui, Toasts toasts, Player? player = null, float time = 0f, TimeOnly? clock = null)
+    {
+        _pendingUi = (sim, clock ?? new TimeOnly(10, 0), ui, toasts, player, time);
+        RunOneFrame();
+        return _result ?? throw new InvalidOperationException("the frame was not rendered");
+    }
+
+    private void EnsureRenderer(Simulation sim)
+    {
+        var ids = string.Join(",", sim.World.Desks.Select(d => d.OwnerId));
+        if (_renderer is not null && ids == _rendererIds) return;
+        _renderer?.Dispose();
+        _renderer = new SceneRenderer(GraphicsDevice, SpriteGenerator.Generate(sim.World.Desks.Select(d => d.OwnerId)));
+        _rendererIds = ids;
+        _hud ??= new Hud(GraphicsDevice);
+        _ui = new UiRenderer(_hud, _renderer);
+    }
+
     protected override void Draw(GameTime gameTime)
     {
         if (_pending is { } p)
         {
-            var ids = string.Join(",", p.Sim.World.Desks.Select(d => d.OwnerId));
-            if (_renderer is null || ids != _rendererIds)
-            {
-                _renderer?.Dispose();
-                _renderer = new SceneRenderer(GraphicsDevice, SpriteGenerator.Generate(p.Sim.World.Desks.Select(d => d.OwnerId)));
-                _rendererIds = ids;
-            }
-            _renderer.ResetEffects();
+            EnsureRenderer(p.Sim);
+            _renderer!.ResetEffects();
             var camera = new Camera(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight);
             for (var i = 0; i < p.Frames; i++)
                 _renderer.Draw(p.Sim, camera, p.Clock, p.Shifts, Dt);
             _result = _renderer.ReadFrame();
             _renderer.Present(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
             _pending = null;
+        }
+        if (_pendingUi is { } u)
+        {
+            EnsureRenderer(u.Sim);
+            _renderer!.ResetEffects();
+            var camera = new Camera(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight);
+            var shifts = new[] { Shifts.Default };
+            _renderer.Draw(u.Sim, camera, u.Clock, shifts, Dt, u.Player, u.Player?.Target(u.Sim));
+
+            _composite ??= new RenderTarget2D(GraphicsDevice, SceneRenderer.NativeWidth, SceneRenderer.NativeHeight, false, SurfaceFormat.Color, DepthFormat.None);
+            GraphicsDevice.SetRenderTarget(_composite);
+            _renderer.Present(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight, 1);
+            _ui!.Draw(u.Ui, u.Toasts, 1, u.Time);
+            GraphicsDevice.SetRenderTarget(null);
+
+            var data = new Color[SceneRenderer.NativeWidth * SceneRenderer.NativeHeight];
+            _composite.GetData(data);
+            _result = new Frame(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight, data.Select(SceneRenderer.ToRgba).ToArray());
+            _renderer.Present(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            _pendingUi = null;
         }
         base.Draw(gameTime);
     }
@@ -82,7 +120,7 @@ public sealed class GoldenHost : Game
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) _renderer?.Dispose();
+        if (disposing) { _renderer?.Dispose(); _hud?.Dispose(); _composite?.Dispose(); }
         base.Dispose(disposing);
     }
 }
