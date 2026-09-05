@@ -7,6 +7,14 @@ using HomeWorkplace.Office;
 var config = AppConfig.Load(Path.Combine(AppContext.BaseDirectory, "app.json"));
 AppConfigDirectories.ResolveWorkingDirectories(config, AppContext.BaseDirectory);
 
+// The company lives under Documents\Home Workplace\<office>; the repo only seeds it the first time.
+var repoRoot = AppConfigDirectories.FindRepoRoot(AppContext.BaseDirectory);
+var paths = OfficePaths.Prepare(config.Office.Name,
+    templatesSource: repoRoot is null ? null : Path.Combine(repoRoot, "hiring"),
+    legacyEmployees: repoRoot is null ? null : Path.Combine(repoRoot, "employees"),
+    legacyData: repoRoot is null ? null : Path.Combine(repoRoot, "services", "foreman", "src", "HomeWorkplace.Foreman", "data"));
+config.ServiceEnvironment = paths.ForemanEnvironment();
+
 var runner = new ProcessRunner();
 var supervisor = new ServiceSupervisor(config, runner,
     new HttpHealthProbe(new HttpClient { Timeout = TimeSpan.FromSeconds(3) }));
@@ -16,7 +24,7 @@ var setup = new CliSetupChecker(runner);
 var store = new AppStore();
 var pump = new EventPump(foreman, store);
 
-using var game = new OfficeGame(config, supervisor, store, pump, foreman, context, setup);
+using var game = new OfficeGame(config, supervisor, store, pump, foreman, context, setup, paths);
 
 // Dev flags: --clock HH:mm   --frames-every SECONDS   --exit-after SECONDS   --smoke-script "walk ada-coder;talk;pick 0;..."
 for (var i = 0; i + 1 < args.Length; i += 2)

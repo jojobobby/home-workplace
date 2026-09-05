@@ -94,3 +94,31 @@ public class SupervisorTests
         Assert.Equal("dotnet", cfg.Foreman.Command);
     }
 }
+
+public class SupervisorEnvironmentTests
+{
+    [Fact]
+    public async Task Extra_service_environment_reaches_both_services_on_top_of_the_scrub()
+    {
+        var runner = new FakeProcessRunner();
+        var health = new FakeHealthProbe().HealthyAfter("http://localhost:5171", 1).HealthyAfter("http://localhost:5172", 1);
+        var cfg = new AppConfig
+        {
+            ContextApi = new ServiceCommand("dotnet", new[] { "run", "--project", "services/context-api/src/HomeWorkplace.ContextApi" }, "/repo"),
+            Foreman = new ServiceCommand("dotnet", new[] { "run", "--project", "services/foreman/src/HomeWorkplace.Foreman" }, "/repo"),
+            HealthPollMs = 1, HealthTimeoutSeconds = 5,
+            ServiceEnvironment = new Dictionary<string, string?> { ["Foreman__DataPath"] = @"C:\office\data", ["Foreman__EmployeesPath"] = @"C:\office\employees" },
+        };
+        var sup = new ServiceSupervisor(cfg, runner, health);
+
+        var result = await sup.StartAsync(CancellationToken.None);
+
+        Assert.True(result.Success, result.Error);
+        Assert.All(runner.Starts, s =>
+        {
+            Assert.Equal(@"C:\office\data", s.Environment["Foreman__DataPath"]);
+            Assert.Equal(@"C:\office\employees", s.Environment["Foreman__EmployeesPath"]);
+            Assert.DoesNotContain(s.Environment.Keys, k => k.StartsWith("CLAUDECODE", StringComparison.OrdinalIgnoreCase));
+        });
+    }
+}

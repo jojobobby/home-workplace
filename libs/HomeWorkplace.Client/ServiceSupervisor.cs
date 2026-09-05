@@ -31,7 +31,8 @@ public sealed class ServiceSupervisor
     {
         if (!_config.ConnectOnly)
         {
-            var env = EnvironmentScrub.Current();
+            var env = new Dictionary<string, string?>(EnvironmentScrub.Current(), StringComparer.OrdinalIgnoreCase);
+            foreach (var (key, value) in _config.ServiceEnvironment) env[key] = value;   // the office folder, and anything else the app adds
             Launch(ServiceName.ContextApi, _config.ContextApi, env);
             Launch(ServiceName.Foreman, _config.Foreman, env);
         }

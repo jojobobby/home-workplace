@@ -22,6 +22,10 @@ public sealed class AppConfig
     public int HealthTimeoutSeconds { get; set; } = 60;
     public OfficeConfig Office { get; set; } = new();
 
+    /// <summary>Extra variables both services start with (the office folder for Foreman). Set by the app, not by app.json.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyDictionary<string, string?> ServiceEnvironment { get; set; } = new Dictionary<string, string?>();
+
     public static AppConfig Load(string path)
     {
         if (!File.Exists(path)) return new AppConfig();
@@ -39,6 +43,8 @@ public sealed class AppConfig
 /// <summary>The office game's settings: master volume, integer scale (0 = largest fit), debug overlay.</summary>
 public sealed class OfficeConfig
 {
+    /// <summary>The company's name: its folder under Documents\Home Workplace and the window title.</summary>
+    public string Name { get; set; } = "Main Office";
     public float Volume { get; set; } = 0.6f;
     public int Scale { get; set; }
     public bool ShowDebug { get; set; }
