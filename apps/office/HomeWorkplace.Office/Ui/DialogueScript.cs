@@ -112,7 +112,7 @@ public static class DialogueScript
         {
             lines.Add($"{tickets.Count} ticket{(tickets.Count == 1 ? "" : "s")} pinned. Idle employees of the right role take them.");
             foreach (var t in tickets.Take(3))
-                lines.Add($"- {t.Title} ({t.Role ?? "any role"}, {Age(now - t.CreatedAt)})");
+                lines.Add($"- {t.Title} ({t.Role ?? "any role"}, {Age(now - t.CreatedAt)}{(t.BudgetUsd is { } b ? $", ${b:0.00}" : "")})");
         }
 
         var options = new List<DialogueOption> { new("Post a ticket", new PickTicketRole()) };

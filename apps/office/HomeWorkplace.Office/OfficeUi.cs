@@ -189,9 +189,19 @@ public sealed class OfficeUi
                 case "task.claimed":
                     Toasts.Add($"{who} took a ticket", ToastKind.Info, e.EmployeeId);
                     break;
+                case "goal.decision" when PlannedTasks(e) is > 0 and var planned:
+                    Toasts.Add($"{who} planned {planned} task{(planned == 1 ? "" : "s")}", ToastKind.Info, e.EmployeeId);
+                    break;
             }
         }
         _lastEventSeq = Math.Max(_lastEventSeq, newest);
+    }
+
+    /// <summary>How many create_task / post_ticket actions a goal.decision event carried.</summary>
+    private static int PlannedTasks(EventDto e)
+    {
+        if (e.Data is not { ValueKind: System.Text.Json.JsonValueKind.Object } d || !d.TryGetProperty("actions", out var actions) || actions.ValueKind != System.Text.Json.JsonValueKind.Array) return 0;
+        return actions.EnumerateArray().Count(a => a.ValueKind == System.Text.Json.JsonValueKind.String && a.GetString() is "create_task" or "post_ticket");
     }
 
     private static string? Data(EventDto e, string name)

@@ -82,14 +82,16 @@ Built:
    daily cost; let people go. Role templates live in `hiring/`.
 8. **Ticket board (4e)** — pin tickets for a role; idle employees of that role claim and
    run them, walking to the board to take one.
+9. **Manager tickets (4f)** — a ticket for a manager becomes a goal: the manager cuts it
+   into tasks for named people or sub-tickets for a role, and the ticket closes with the goal.
 
 Next:
 
-9. **Art and sound pipeline (4c)** — real sprite sheets (via the vfx-artist employee) and music
+10. **Art and sound pipeline (4c)** — real sprite sheets (via the vfx-artist employee) and music
    replacing the procedural placeholders.
-10. **Notifications** — email, push, AI-voice calls, approvals.
-11. **VM/sandbox layer** — per-employee scoped control of a machine.
-12. **Phone app** — the same UI library, built for Android/iOS.
+11. **Notifications** — email, push, AI-voice calls, approvals.
+12. **VM/sandbox layer** — per-employee scoped control of a machine.
+13. **Phone app** — the same UI library, built for Android/iOS.
 
 ## Note on subscription use
 

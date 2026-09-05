@@ -74,7 +74,9 @@ public sealed class Actions
         }),
         PickTicketRole => Task.FromResult<ActionOutcome>(new OpenDialogue(DialogueScript.TicketRoles(_snapshot().Employees.Values))),
         PostTicket a => Task.FromResult<ActionOutcome>(new OpenText(new TextEntry($"New ticket for {a.Role ?? "any role"}",
-            new[] { new Field("Title", false, 60), new Field("Brief", true, 600) }, action))),
+            IsManagerRole(a.Role)
+                ? new[] { new Field("Title", false, 60), new Field("Brief", true, 600), new Field("Budget USD", false, 10) }
+                : new[] { new Field("Title", false, 60), new Field("Brief", true, 600) }, action))),
         CancelTask a => Confirm($"Cancel \"{TaskTitle(a.TaskId)}\"? Its runs stop.", action),
         CancelGoal a => Confirm($"Cancel \"{GoalTitle(a.GoalId)}\" and its open tasks?", action),
         Reset a => Confirm($"Reset {NameOf(a.EmployeeId)}? Today's memory is written up and forgotten.", action),
@@ -105,7 +107,13 @@ public sealed class Actions
                 var hired = await _foreman.HireAsync(new HireRequest(a.TemplateId, a.Model, v[0].Trim()));
                 return Ok($"Hired {hired.Name} as {hired.Role}", ToastKind.Success);   // short enough for a toast
             case PostTicket a:
-                var ticket = await _foreman.CreateTicketAsync(new CreateTicketRequest(v[0].Trim(), v[1].Trim(), a.Role));
+                decimal? budgetUsd = null;
+                if (v.Count > 2 && v[2].Trim().Length > 0)
+                {
+                    if (!TryMoney(v[2], out var ticketBudget)) return Fail("Budget must be a number of dollars, like 5 or 12.50, or blank for the default");
+                    budgetUsd = ticketBudget;
+                }
+                var ticket = await _foreman.CreateTicketAsync(new CreateTicketRequest(v[0].Trim(), v[1].Trim(), a.Role, BudgetUsd: budgetUsd));
                 return Ok($"Ticket pinned: {ticket.Title}", ToastKind.Success);
             default:
                 return Fail("nothing to submit");
@@ -201,6 +209,7 @@ public sealed class Actions
         .ToHashSet();
 
     private string RoleOf(string templateId) => _hiring?.Templates.FirstOrDefault(t => t.Id == templateId)?.Role ?? templateId;
+    private static bool IsManagerRole(string? role) => role is not null && role.Contains("manager", StringComparison.OrdinalIgnoreCase);
     private string NameOf(string employeeId) => _snapshot().Employees.TryGetValue(employeeId, out var e) ? e.Name : employeeId;
     private string TaskTitle(string taskId) => _snapshot().Tasks.TryGetValue(taskId, out var t) ? t.Title : taskId;
     private string GoalTitle(string goalId) => _snapshot().Goals.TryGetValue(goalId, out var g) ? g.Title : goalId;

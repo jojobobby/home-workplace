@@ -52,6 +52,11 @@ a title and brief. The oldest ticket goes to the first idle, awake employee of t
 walk to the board, take it, and go type. "Take down" cancels a ticket. The Tasks tab shows
 tickets as `(board)` until someone claims them.
 
+Pin a ticket for a **manager** role (it takes an optional budget) and the manager takes it as a
+goal: their plan gives tasks to named teammates or pins sub-tickets on the board for a role,
+the goal tracks them as they settle, and the original ticket closes when the goal does. The
+whiteboard shows the goal; a toast says how many tasks the manager planned.
+
 ## Managing the company
 
 Walk up to an employee (or click them) and a dialogue box opens at the bottom: they say what
