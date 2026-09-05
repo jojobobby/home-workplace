@@ -181,6 +181,7 @@ public sealed class SceneRenderer : IDisposable
                 PropKind.CoffeeMachine => "coffee",
                 PropKind.Whiteboard => "whiteboard",
                 PropKind.Plant => "plant",
+                PropKind.HiringStand => "hiring",
                 _ => "floor",
             };
             Blit(_manifest.Get(name).Frames[0], prop.Pos.X * Agent.TileSize, prop.Pos.Y * Agent.TileSize);
@@ -225,6 +226,11 @@ public sealed class SceneRenderer : IDisposable
         {
             var board = sim.World.Props.First(p => p.Kind == PropKind.Whiteboard);
             Blit(prompt, (board.Pos.X + board.Width / 2) * Agent.TileSize - prompt.W / 2, (board.Pos.Y + board.Height) * Agent.TileSize + 2);
+        }
+        else if (target.Kind == InteractKind.HiringStand)
+        {
+            var stand = sim.World.Props.First(p => p.Kind == PropKind.HiringStand);
+            Blit(prompt, (stand.Pos.X + stand.Width / 2) * Agent.TileSize - prompt.W / 2, stand.Pos.Y * Agent.TileSize - 12);
         }
     }
 

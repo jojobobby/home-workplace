@@ -338,7 +338,6 @@ public sealed class OfficeGame : Game
         if (Interlocked.Exchange(ref _storeDirty, 0) == 0) return;
 
         var employees = _store.Employees;
-        if (employees.Count == 0) return;
         _shifts = Shifts.From(employees.Values);
 
         var ids = string.Join(",", employees.Keys.OrderBy(k => k, StringComparer.Ordinal));
@@ -399,11 +398,22 @@ public sealed class OfficeGame : Game
             {
                 var world = _camera.ScreenToWorld(native);
                 if (HitTest.AgentAt(_sim, world) is { } agent) _office.OpenEmployee(agent.Id);
+                else if (OnProp(_sim, PropKind.HiringStand, world)) _office.Interact(new Interactable(InteractKind.HiringStand, null));
                 else if (OnWhiteboard(_sim, world)) _office.OpenWhiteboard();
             }
             _dragFrom = null;
             _dragging = false;
         }
+    }
+
+    /// <summary>A prop's tiles plus its sign above (one tile), for clicks.</summary>
+    private static bool OnProp(Simulation sim, PropKind kind, Vector2 world)
+    {
+        var prop = sim.World.Props.FirstOrDefault(p => p.Kind == kind);
+        if (prop is null) return false;
+        var x0 = prop.Pos.X * Agent.TileSize;
+        var y0 = (prop.Pos.Y - 1) * Agent.TileSize;
+        return world.X >= x0 && world.X < x0 + prop.Width * Agent.TileSize && world.Y >= y0 && world.Y < (prop.Pos.Y + prop.Height) * Agent.TileSize;
     }
 
     /// <summary>The whiteboard prop and the floor tile row just under it.</summary>

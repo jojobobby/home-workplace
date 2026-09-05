@@ -1,6 +1,6 @@
 namespace HomeWorkplace.Office.Sim;
 
-public enum PropKind { Desk, CoffeeMachine, Whiteboard, Plant }
+public enum PropKind { Desk, CoffeeMachine, Whiteboard, Plant, HiringStand }
 
 /// <summary>A placed prop; size in tiles. Desks carry their owner.</summary>
 public sealed record Prop(PropKind Kind, TilePos Pos, int Width, int Height, string? OwnerId);
@@ -11,7 +11,7 @@ public sealed record Desk(string OwnerId, TilePos Pos, TilePos Seat);
 public sealed class World
 {
     public World(TileMap map, IReadOnlyList<Desk> desks, IReadOnlyList<Prop> props,
-                 TilePos spawn, TilePos coffeeSpot, TilePos whiteboardSpot)
+                 TilePos spawn, TilePos coffeeSpot, TilePos whiteboardSpot, TilePos hiringSpot)
     {
         Map = map;
         Desks = desks;
@@ -19,7 +19,11 @@ public sealed class World
         Spawn = spawn;
         CoffeeSpot = coffeeSpot;
         WhiteboardSpot = whiteboardSpot;
+        HiringSpot = hiringSpot;
     }
+
+    /// <summary>The floor tile in front of the hiring stand.</summary>
+    public TilePos HiringSpot { get; }
 
     public TileMap Map { get; }
     public IReadOnlyList<Desk> Desks { get; }
@@ -84,8 +88,10 @@ public static class WorldLayout
 
         var coffee = new Prop(PropKind.CoffeeMachine, new TilePos(26, 1), 2, 1, null);
         var whiteboard = new Prop(PropKind.Whiteboard, new TilePos(12, 0), 6, 1, null);   // hangs on the top wall
+        var stand = new Prop(PropKind.HiringStand, new TilePos(3, 15), 2, 1, null);      // by the door
         props.Add(coffee);
         props.Add(whiteboard);
+        props.Add(stand);
         props.Add(new Prop(PropKind.Plant, new TilePos(1, 1), 1, 1, null));
         props.Add(new Prop(PropKind.Plant, new TilePos(28, 1), 1, 1, null));
 
@@ -97,6 +103,7 @@ public static class WorldLayout
         return new World(map, desks, props,
             spawn: new TilePos(1, 15),
             coffeeSpot: new TilePos(26, 2),
-            whiteboardSpot: new TilePos(14, 1));
+            whiteboardSpot: new TilePos(14, 1),
+            hiringSpot: new TilePos(3, 14));
     }
 }

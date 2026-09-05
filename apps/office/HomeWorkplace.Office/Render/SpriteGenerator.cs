@@ -50,6 +50,7 @@ public static class SpriteGenerator
             ("bubble_dots", Tile, Tile, 1, 0, (_, p) => PaintBubble(p, '.')),
             ("light", 64, 64, 1, 0, (_, p) => PaintLight(p)),
             ("e_prompt", 9, 9, 1, 0, (_, p) => PaintPrompt(p)),
+            ("hiring", 32, Tile, 1, 0, (_, p) => PaintHiring(p)),
             ("panel", 12, 12, 1, 0, (_, p) => PaintPanel(p, dark: false)),
             ("panel_dark", 12, 12, 1, 0, (_, p) => PaintPanel(p, dark: true)),
         };
@@ -217,6 +218,26 @@ public static class SpriteGenerator
         p.Rect(2, 2, 8, 8, dark ? BorderDark : Panel);
         p.Rect(3, 3, 6, 6, dark ? Frame : Panel);
         if (!dark) { p.Rect(2, 9, 8, 1, Frame); p.Rect(9, 2, 1, 8, Frame); }   // shadowed bottom/right inner edge
+    }
+
+    /// <summary>The hiring stand: a wooden counter with a white sign reading HIRE on a gold post.</summary>
+    private static void PaintHiring(Painter p)
+    {
+        p.Rect(2, 0, 28, 9, BorderDark);                         // sign frame
+        p.Rect(3, 1, 26, 7, Text);                               // sign
+        var x = 4;
+        foreach (var ch in "HIRE")
+        {
+            var g = PixelFont.Glyph(ch);
+            for (var y = 0; y < PixelFont.GlyphHeight; y++)
+            for (var col = 0; col < PixelFont.GlyphWidth; col++)
+                if (g[y][col] == '#') p.Px(x + col, 1 + y, Ink);
+            x += PixelFont.Advance;
+        }
+        p.Rect(15, 9, 2, 2, Gold);                               // post
+        p.Rect(0, 11, 32, 5, Wood);                              // counter
+        p.Rect(0, 11, 32, 1, WoodLight);
+        p.Rect(1, 15, 2, 1, BorderDark); p.Rect(29, 15, 2, 1, BorderDark);
     }
 
     /// <summary>A small key cap with an E on it: the "talk" prompt over the player's target.</summary>

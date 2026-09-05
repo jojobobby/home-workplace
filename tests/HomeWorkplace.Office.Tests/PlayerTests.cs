@@ -158,7 +158,8 @@ public class HiringStandTests
         player.Teleport(Agent.Centre(world.HiringSpot));
         Assert.Equal(new Interactable(InteractKind.HiringStand, null), player.Target(sim));
 
-        sim.Apply(new EmployeeAppeared("ada-coder", "Ada", EmployeeStatus.Awake, null));   // spawns at the door, in reach
+        sim.Apply(new EmployeeAppeared("ada-coder", "Ada", EmployeeStatus.Awake, null));   // spawns at the door
+        player.Teleport(sim.Agents["ada-coder"].Position + new Vector2(8, 0));
         Assert.Equal(InteractKind.Employee, player.Target(sim)!.Value.Kind);
     }
 }
