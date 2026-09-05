@@ -457,7 +457,7 @@ public sealed class OfficeGame : Game
 
             _hud!.Begin(scale);
             if (!_office.IsOpen)
-                _hud.Text("WASD: move  E: talk  Tab: menu  Arrows: pan  Wheel: zoom  M: mute  F3: debug  F12: shot",
+                _hud.Text("WASD move  E talk  Tab menu  Arrows pan  Wheel zoom  M mute  F3 debug  F12 shot",   // 79 chars: fits 480 px
                     4, SceneRenderer.NativeHeight - 12, new Color(0xb9, 0xb7, 0xc9), new Color(0x0d, 0x0f, 0x22, 160));
             if (_fade < 1f) _hud.FillWindow(w, h, Color.Black * (1f - _fade));
             if (_debug) DrawDebug(clock);
