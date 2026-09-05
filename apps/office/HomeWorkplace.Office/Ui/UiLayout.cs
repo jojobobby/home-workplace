@@ -93,6 +93,14 @@ public static class UiLayout
     }
 
     // ---- confirm ----
+    public const int ConfirmWidth = 264;
+    public static IReadOnlyList<string> ConfirmLines(Confirm c) => Markup.Wrap(c.Question, (ConfirmWidth - 24) / PixelFont.Advance);
+    public static UiRect ConfirmBox(Confirm c)
+    {
+        var h = 16 + ConfirmLines(c).Count * Line + 20;
+        return new UiRect((W - ConfirmWidth) / 2, (H - h) / 2, ConfirmWidth, h);
+    }
+    public static int ConfirmButtonsY(Confirm c) => ConfirmBox(c).Y + 8 + ConfirmLines(c).Count * Line + 4;
     public static UiRect ConfirmYesRect(UiRect box, int y) => new(box.X + 12, y, 40, Line);
     public static UiRect ConfirmNoRect(UiRect box, int y) => new(box.X + 72, y, 40, Line);
 }

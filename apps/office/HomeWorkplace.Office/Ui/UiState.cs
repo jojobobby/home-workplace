@@ -19,15 +19,16 @@ public readonly record struct UiKey(UiKeyKind Kind, char Ch = '\0')
     public static UiKey Char(char c) => new(UiKeyKind.Char, c);
 }
 
-public enum LayerResultKind { None, Pop, Push, Submit }
+public enum LayerResultKind { None, Pop, Push, Submit, Emit }
 
-/// <summary>What a layer wants after a key: nothing, close itself, open another, or hand back a payload (and close).</summary>
+/// <summary>What a layer wants after a key: nothing, close itself, open another, hand back a payload and close (Submit), or hand one back and stay open (Emit).</summary>
 public sealed record LayerResult(LayerResultKind Kind, ILayer? Layer = null, object? Payload = null)
 {
     public static LayerResult None() => new(LayerResultKind.None);
     public static LayerResult Pop() => new(LayerResultKind.Pop);
     public static LayerResult Push(ILayer layer) => new(LayerResultKind.Push, layer);
     public static LayerResult Submit(object? payload) => new(LayerResultKind.Submit, Payload: payload);
+    public static LayerResult Emit(object? payload) => new(LayerResultKind.Emit, Payload: payload);
 }
 
 /// <summary>A modal piece of UI: a dialogue, the overlay, a text entry, a confirm.</summary>

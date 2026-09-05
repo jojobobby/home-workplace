@@ -38,6 +38,17 @@ public sealed class AppStore
     }
 
     public void SetEmployee(EmployeeDto e) { lock (_gate) _employees[e.Id] = e; Raise(); }
+
+    /// <summary>Forget everything (leaving a workplace): employees, tasks, goals, events, toasts, and that the services were up.</summary>
+    public void Clear()
+    {
+        lock (_gate)
+        {
+            _employees.Clear(); _tasks.Clear(); _goals.Clear(); _events.Clear(); _toasts.Clear();
+            ServicesUp = false;
+        }
+        Raise();
+    }
     public void SetTask(TaskDto t) { lock (_gate) _tasks[t.Id] = t; Raise(); }
     public void SetGoal(GoalDto g) { lock (_gate) _goals[g.Id] = g; Raise(); }
 

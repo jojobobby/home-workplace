@@ -16,13 +16,19 @@ public sealed class TextEntry : ILayer
 {
     private readonly StringBuilder[] _values;
 
-    public TextEntry(string title, IReadOnlyList<Field> fields, object? payload)
+    /// <param name="initial">Text the fields start with (a rename shows the old name); clipped to each field's length, cursor at its end.</param>
+    public TextEntry(string title, IReadOnlyList<Field> fields, object? payload, IReadOnlyList<string>? initial = null)
     {
         if (fields.Count == 0) throw new ArgumentException("a text entry needs at least one field", nameof(fields));
         Title = title;
         Fields = fields;
         Payload = payload;
-        _values = fields.Select(_ => new StringBuilder()).ToArray();
+        _values = fields.Select((f, i) =>
+        {
+            var text = initial is not null && i < initial.Count ? initial[i] : "";
+            return new StringBuilder(text.Length > f.MaxLength ? text[..f.MaxLength] : text);
+        }).ToArray();
+        Cursor = _values[0].Length;
     }
 
     public string Title { get; }

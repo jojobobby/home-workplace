@@ -147,15 +147,13 @@ public sealed class UiRenderer
 
     private void DrawConfirm(Confirm c)
     {
-        const int width = 264;
-        var lines = Markup.Wrap(c.Question, (width - 24) / PixelFont.Advance);
-        var height = 16 + lines.Count * Line + 20;
-        var x0 = (W - width) / 2;
-        var y0 = (H - height) / 2;
-        _hud.Panel(x0, y0, width, height);
-        var y = y0 + 8;
+        var box = UiLayout.ConfirmBox(c);
+        var lines = UiLayout.ConfirmLines(c);
+        var x0 = box.X;
+        _hud.Panel(box.X, box.Y, box.W, box.H);
+        var y = box.Y + 8;
         foreach (var line in lines) { _hud.Text(line, x0 + 12, y, Text); y += Line; }
-        y += 4;
+        y = UiLayout.ConfirmButtonsY(c);
         _hud.Text((c.Selected == 0 ? "> " : "  ") + "Yes", x0 + 12, y, c.Selected == 0 ? Gold : Text);
         _hud.Text((c.Selected == 1 ? "> " : "  ") + "No", x0 + 72, y, c.Selected == 1 ? Gold : Text);
     }
