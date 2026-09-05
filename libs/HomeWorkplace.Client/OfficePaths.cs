@@ -33,7 +33,7 @@ public sealed record OfficePaths(string Root, string Employees, string Hiring, s
         Directory.CreateDirectory(paths.Workspaces);
         SeedIfEmpty(templatesSource, paths.Hiring);
         SeedIfEmpty(legacyEmployees, paths.Employees);
-        SeedIfEmpty(legacyData, paths.Data, ignoreEntries: new[] { "workspaces" }, allowExisting: new[] { "workspaces" });
+        SeedIfEmpty(legacyData, paths.Data, allowExisting: new[] { "workspaces" });   // workspaces travel too: they hold the agents' work
         return paths;
     }
 

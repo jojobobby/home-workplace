@@ -44,6 +44,7 @@ public class OfficePathsTests
         Write(Path.Combine(repo, "employees", "mia", "employee.json"), "{\"id\":\"mia\"}");
         Write(Path.Combine(repo, "employees", ".former", "old", "employee.json"), "{}");
         Write(Path.Combine(repo, "data", "tasks", "t1.json"), "{\"Id\":\"t1\"}");
+        Write(Path.Combine(repo, "data", "workspaces", "t1", "pacman.py"), "print('hi')");
 
         var p = OfficePaths.Prepare("Main Office", Path.Combine(repo, "hiring"), Path.Combine(repo, "employees"), Path.Combine(repo, "data"), docs);
 
@@ -51,6 +52,7 @@ public class OfficePathsTests
         Assert.True(File.Exists(Path.Combine(p.Employees, "mia", "employee.json")));
         Assert.True(File.Exists(Path.Combine(p.Employees, ".former", "old", "employee.json")));
         Assert.True(File.Exists(Path.Combine(p.Data, "tasks", "t1.json")));
+        Assert.True(File.Exists(Path.Combine(p.Workspaces, "t1", "pacman.py")), "the agents' work travels with the company");
         Assert.True(Directory.Exists(p.Workspaces));
         Assert.True(File.Exists(Path.Combine(repo, "employees", "mia", "employee.json")), "the repo copy is left alone");
 
