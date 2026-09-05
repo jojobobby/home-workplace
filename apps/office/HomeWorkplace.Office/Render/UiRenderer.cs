@@ -96,6 +96,7 @@ public sealed class UiRenderer
             var ink = !d.Options[i].Enabled ? Dim : selected ? Gold : Text;
             _hud.Text(d.Options[i].Label, rect.X + 8, rect.Y, ink, maxChars: 32);
         }
+        _hud.Text("Up/Down: pick   Enter: choose   Esc: back", 64, y0 + DialogueHeight - 12, Dim);
         if (d.Options.Count > perPage)
             _hud.Text($"{page + 1}/{(d.Options.Count + perPage - 1) / perPage}", W - 40, y0 + DialogueHeight - 12, Dim);
     }
