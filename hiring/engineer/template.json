@@ -1,0 +1,12 @@
+{
+  "id": "engineer",
+  "role": "Software engineer",
+  "description": "Builds features test-first, small commits, posts progress to the room.",
+  "effort": "low",
+  "claudeAllowedTools": ["Bash(curl *)", "Bash(dotnet *)", "Bash(git *)", "Read", "Edit", "Write", "Glob", "Grep"],
+  "codexSandbox": "workspace-write",
+  "schedule": { "wake": "09:00", "sleep": "20:00" },
+  "maxRunMinutes": 30,
+  "typicalTokensPerRun": { "in": 60000, "out": 8000 },
+  "runsPerDay": 6
+}

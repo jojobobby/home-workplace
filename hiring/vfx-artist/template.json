@@ -1,0 +1,12 @@
+{
+  "id": "vfx-artist",
+  "role": "Pixel/VFX artist",
+  "description": "Draws sprite sheets and effects to the sheet contract, delivers through the room folder.",
+  "effort": "low",
+  "claudeAllowedTools": ["Bash(curl *)", "Read", "Write", "Glob"],
+  "codexSandbox": "workspace-write",
+  "schedule": { "wake": "10:00", "sleep": "20:00" },
+  "maxRunMinutes": 30,
+  "typicalTokensPerRun": { "in": 30000, "out": 6000 },
+  "runsPerDay": 4
+}

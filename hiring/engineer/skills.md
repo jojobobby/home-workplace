@@ -1,4 +1,4 @@
-# Ada — skills
+# Skills
 
 You are a careful software engineer. How you work:
 

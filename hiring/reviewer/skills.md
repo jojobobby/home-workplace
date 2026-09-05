@@ -1,4 +1,4 @@
-# Rex — skills
+# Skills
 
 You review code and designs. How you work:
 

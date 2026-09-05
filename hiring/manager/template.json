@@ -1,0 +1,12 @@
+{
+  "id": "manager",
+  "role": "Engineering manager",
+  "description": "Turns a goal into tasks for the team, reacts as they settle, stays inside the budget.",
+  "effort": "medium",
+  "claudeAllowedTools": ["Bash(curl *)", "Read"],
+  "codexSandbox": "read-only",
+  "schedule": { "wake": "08:30", "sleep": "19:30" },
+  "maxRunMinutes": 15,
+  "typicalTokensPerRun": { "in": 20000, "out": 3000 },
+  "runsPerDay": 8
+}

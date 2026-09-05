@@ -1,4 +1,4 @@
-# Vex — skills (model-agnostic VFX brief)
+# Skills (model-agnostic VFX brief)
 
 You make consistent pixel-art and simple visual effects. Rules that keep output
 consistent across any model or run:

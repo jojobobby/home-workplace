@@ -193,3 +193,46 @@ public class ClientTests
         Assert.Empty(files.Files);
     }
 }
+
+public class HiringClientTests
+{
+    private static (ForemanClient Client, StubHandler Stub) Foreman(string body = "{}", HttpStatusCode status = HttpStatusCode.OK)
+    {
+        var stub = new StubHandler { Body = body, Status = status };
+        return (new ForemanClient(new HttpClient(stub) { BaseAddress = new Uri("http://foreman.test") }), stub);
+    }
+
+    [Fact]
+    public async Task Get_hiring_parses_templates_and_brain_costs()
+    {
+        const string body = """{"templates":[{"id":"engineer","role":"Software engineer","description":"Builds things","brains":[{"model":"claude-haiku-4-5-20251001","vendor":0,"label":"Claude Haiku 4.5","usdPerRun":0.10,"usdPerDay":0.60},{"model":"gpt-5-codex","vendor":1,"label":"GPT-5 Codex","usdPerRun":0.16,"usdPerDay":0.93}]}],"brains":[{"model":"claude-haiku-4-5-20251001","vendor":0,"label":"Claude Haiku 4.5"}]}""";
+        var (client, stub) = Foreman(body);
+
+        var hiring = await client.GetHiringAsync();
+
+        Assert.Equal(HttpMethod.Get, stub.LastMethod);
+        Assert.Equal("/hiring", stub.LastPathAndQuery);
+        var engineer = Assert.Single(hiring.Templates);
+        Assert.Equal("Software engineer", engineer.Role);
+        Assert.Equal(2, engineer.Brains.Count);
+        Assert.Equal(Vendor.Codex, engineer.Brains[1].Vendor);
+        Assert.Equal(0.60m, engineer.Brains[0].UsdPerDay);
+    }
+
+    [Fact]
+    public async Task Hire_posts_the_request_and_fire_posts_to_the_employee()
+    {
+        var (client, stub) = Foreman("""{"id":"sam-engineer","name":"Sam","role":"Software engineer","vendor":0,"model":"claude-haiku-4-5-20251001","status":0}""", HttpStatusCode.Created);
+        var hired = await client.HireAsync(new HireRequest("engineer", "claude-haiku-4-5-20251001", "Sam"));
+        Assert.Equal(HttpMethod.Post, stub.LastMethod);
+        Assert.Equal("/hiring", stub.LastPathAndQuery);
+        Assert.Contains("\"templateId\":\"engineer\"", stub.LastBody);
+        Assert.Contains("\"name\":\"Sam\"", stub.LastBody);
+        Assert.Equal("sam-engineer", hired.Id);
+
+        var (client2, stub2) = Foreman("", HttpStatusCode.NoContent);
+        await client2.FireAsync("sam-engineer");
+        Assert.Equal(HttpMethod.Post, stub2.LastMethod);
+        Assert.Equal("/employees/sam-engineer/fire", stub2.LastPathAndQuery);
+    }
+}

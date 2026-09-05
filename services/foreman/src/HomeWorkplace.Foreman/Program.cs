@@ -20,6 +20,7 @@ builder.Services.AddHostedService<DayCycle>();
 builder.Services.AddSingleton<GoalBook>();
 builder.Services.AddSingleton<ManagerComposer>();
 builder.Services.AddSingleton<StateRecovery>();
+builder.Services.AddSingleton<HiringDesk>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -47,6 +48,19 @@ app.MapGet("/employees", (EmployeeCatalog c) => Results.Ok(c.List()));
 app.MapGet("/employees/{id}", (string id, EmployeeCatalog c) =>
     c.View(id) is { } v ? Results.Ok(v) : Results.NotFound());
 app.MapPost("/employees/reload", (EmployeeCatalog c) => { c.Load(); return Results.NoContent(); });
+
+app.MapGet("/hiring", (HiringDesk desk) => Results.Ok(desk.List()));
+app.MapPost("/hiring", (HireRequest req, HiringDesk desk) =>
+{
+    try { var hired = desk.Hire(req); return Results.Created($"/employees/{hired.Id}", hired); }
+    catch (HiringException ex) { return Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status400BadRequest); }
+});
+app.MapPost("/employees/{id}/fire", (string id, HiringDesk desk) => desk.Fire(id) switch
+{
+    FireResult.Ok => Results.NoContent(),
+    FireResult.Busy => Results.Problem(detail: "The employee is working; wait for the run to finish or cancel their task.", statusCode: StatusCodes.Status409Conflict),
+    _ => Results.NotFound(),
+});
 app.MapPost("/employees/{id}/wake", (string id, string? until, EmployeeCatalog cat, RunSupervisor sup, TimeProvider clock) =>
 {
     if (cat.Find(id) is null) return Results.NotFound();

@@ -51,6 +51,7 @@ public sealed class ForemanFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.UseSetting("Foreman:DataPath", _dataPath);
         builder.UseSetting("Foreman:EmployeesPath", _employeesPath);
+        builder.UseSetting("Foreman:HiringPath", Path.Combine(_dataPath, "hiring"));
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IContextApiClient>();

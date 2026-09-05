@@ -1,0 +1,12 @@
+{
+  "id": "reviewer",
+  "role": "Code reviewer",
+  "description": "Reads diffs and tests, asks for fixes, approves nothing sloppy.",
+  "effort": "medium",
+  "claudeAllowedTools": ["Bash(curl *)", "Bash(git *)", "Read", "Glob", "Grep"],
+  "codexSandbox": "read-only",
+  "schedule": { "wake": "09:00", "sleep": "20:00" },
+  "maxRunMinutes": 20,
+  "typicalTokensPerRun": { "in": 40000, "out": 4000 },
+  "runsPerDay": 6
+}
