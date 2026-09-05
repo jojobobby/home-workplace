@@ -1,6 +1,7 @@
 namespace HomeWorkplace.Office.Ui;
 
-public sealed record DialogueOption(string Label, UiAction Action);
+/// <summary>A pick in a dialogue. A disabled option is shown dim and cannot be chosen (a brain whose CLI is not signed in).</summary>
+public sealed record DialogueOption(string Label, UiAction Action, bool Enabled = true);
 
 /// <summary>
 /// An RPG dialogue box: a speaker, lines revealed like a typewriter, then options. Any key
@@ -27,6 +28,8 @@ public sealed class Dialogue : ILayer
     public IReadOnlyList<string> Lines { get; }
     public IReadOnlyList<DialogueOption> Options { get; }
     public int Selected { get; private set; }
+    /// <summary>Atlas sprite drawn as the portrait when there is no speaking employee (the whiteboard, the hiring stand).</summary>
+    public string Portrait { get; init; } = "whiteboard";
 
     public int TotalChars => Lines.Sum(l => l.Length);
     public int Revealed => Math.Min(TotalChars, (int)_revealed);
@@ -54,7 +57,8 @@ public sealed class Dialogue : ILayer
             case UiKeyKind.Up: Select(Selected - 1); break;
             case UiKeyKind.Down: case UiKeyKind.Tab: Select(Selected + 1); break;
             case UiKeyKind.Accept:
-                return Options.Count == 0 ? LayerResult.Pop() : LayerResult.Submit(Options[Selected].Action);
+                if (Options.Count == 0) return LayerResult.Pop();
+                return Options[Selected].Enabled ? LayerResult.Submit(Options[Selected].Action) : LayerResult.None();
             case UiKeyKind.Back:
                 return LayerResult.Pop();
         }

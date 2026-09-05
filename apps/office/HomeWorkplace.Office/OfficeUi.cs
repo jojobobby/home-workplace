@@ -67,6 +67,7 @@ public sealed class OfficeUi
         {
             case { Kind: InteractKind.Employee, EmployeeId: { } id }: OpenEmployee(id); break;
             case { Kind: InteractKind.Whiteboard }: OpenWhiteboard(); break;
+            case { Kind: InteractKind.HiringStand }: Pending = _actions.RunAsync(new OpenHiring()); break;
         }
     }
 

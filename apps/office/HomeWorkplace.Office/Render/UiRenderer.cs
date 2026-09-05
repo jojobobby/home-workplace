@@ -61,7 +61,10 @@ public sealed class UiRenderer
         if (d.SpeakerId is { } id && _manifest.TryAgent(id, Anim.Talk, out var anim))
             _hud.Sprite(anim.Frames[0], 20, y0 + 12, zoom: 2);
         else
-            _hud.Sprite(_manifest.Get("whiteboard").Frames[0], 18, y0 + 20, zoom: 1);
+        {
+            var portrait = _manifest.Get(d.Portrait).Frames[0];
+            _hud.Sprite(portrait, 16 + (40 - Math.Min(40, portrait.W)) / 2, y0 + 8 + (40 - portrait.H) / 2, zoom: 1);
+        }
 
         _hud.Text(d.SpeakerName, 64, y0 + 8, Gold);
 
@@ -89,7 +92,8 @@ public sealed class UiRenderer
             var rect = UiLayout.DialogueOptionRect(i);
             var selected = i == d.Selected;
             if (selected) _hud.Text(">", rect.X, rect.Y, Gold);
-            _hud.Text(d.Options[i].Label, rect.X + 8, rect.Y, selected ? Gold : Text, maxChars: 30);
+            var ink = !d.Options[i].Enabled ? Dim : selected ? Gold : Text;
+            _hud.Text(d.Options[i].Label, rect.X + 8, rect.Y, ink, maxChars: 32);
         }
         if (d.Options.Count > perPage)
             _hud.Text($"{page + 1}/{(d.Options.Count + perPage - 1) / perPage}", W - 40, y0 + DialogueHeight - 12, Dim);

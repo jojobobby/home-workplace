@@ -19,3 +19,9 @@ public sealed record CancelGoal(string GoalId) : UiAction;
 public sealed record TalkTo(string EmployeeId) : UiAction;
 public sealed record ReloadEmployees : UiAction;
 public sealed record Leave : UiAction;
+
+// hiring stand
+public sealed record OpenHiring : UiAction;
+public sealed record HireRole(string TemplateId) : UiAction;
+public sealed record HireBrain(string TemplateId, string Model, string Label) : UiAction;
+public sealed record Fire(string EmployeeId) : UiAction;

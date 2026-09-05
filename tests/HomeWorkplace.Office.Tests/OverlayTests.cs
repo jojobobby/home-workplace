@@ -99,7 +99,7 @@ public class OverlayTests
     {
         var o = new Overlay(OverlayTab.Employees, Snapshot());
         var ada = Assert.IsType<Dialogue>(o.Handle(UiKey.Accept).Layer);
-        Assert.Equal(new[] { "Talk to Ada", "Give a task", "Sleep", "Reset", "Leave" }, ada.Options.Select(x => x.Label));
+        Assert.Equal(new[] { "Talk to Ada", "Give a task", "Sleep", "Reset", "Let go", "Leave" }, ada.Options.Select(x => x.Label));
         o.Handle(UiKey.Down);
         var mia = Assert.IsType<Dialogue>(o.Handle(UiKey.Accept).Layer);
         Assert.Contains("Wake", mia.Options.Select(x => x.Label));

@@ -29,6 +29,7 @@ public sealed class Actions
     private readonly Toasts _toasts;
     private readonly Func<OverlaySnapshot> _snapshot;
     private int _inFlight;
+    private HiringDto? _hiring;
 
     public Actions(IForemanApi foreman, IContextApi context, Journal journal, Toasts toasts, Func<OverlaySnapshot> snapshot)
     {
@@ -52,6 +53,20 @@ public sealed class Actions
             new[] { new Field("Title", false, 60), new Field("Brief", true, 600), new Field("Budget USD", false, 10) }, action))),
         TopUp a => Task.FromResult<ActionOutcome>(new OpenText(new TextEntry($"Top up \"{GoalTitle(a.GoalId)}\"",
             new[] { new Field("Amount USD", false, 10) }, action))),
+        OpenHiring => Guarded(async () =>
+        {
+            _hiring = await _foreman.GetHiringAsync();
+            return new OpenDialogue(DialogueScript.Hiring(_hiring, SignedIn()));
+        }),
+        HireRole a => Guarded(async () =>
+        {
+            _hiring ??= await _foreman.GetHiringAsync();
+            var template = _hiring.Templates.FirstOrDefault(t => t.Id == a.TemplateId);
+            return template is null ? Fail($"Unknown role '{a.TemplateId}'") : new OpenDialogue(DialogueScript.Brains(template, SignedIn()));
+        }),
+        HireBrain a => Task.FromResult<ActionOutcome>(new OpenText(new TextEntry($"Hire a {RoleOf(a.TemplateId)} on {a.Label}",
+            new[] { new Field("Name", false, 24) }, action))),
+        Fire a => Confirm($"Let {NameOf(a.EmployeeId)} go? Their folder is archived under employees/.former.", action),
         CancelTask a => Confirm($"Cancel \"{TaskTitle(a.TaskId)}\"? Its runs stop.", action),
         CancelGoal a => Confirm($"Cancel \"{GoalTitle(a.GoalId)}\" and its open tasks?", action),
         Reset a => Confirm($"Reset {NameOf(a.EmployeeId)}? Today's memory is written up and forgotten.", action),
@@ -78,6 +93,9 @@ public sealed class Actions
                 if (!TryMoney(v[0], out var amount)) return Fail("Amount must be a number of dollars, like 5 or 12.50");
                 await _foreman.TopUpAsync(a.GoalId, amount);
                 return Ok($"Topped up \"{GoalTitle(a.GoalId)}\" by ${amount:0.00}", ToastKind.Success);
+            case HireBrain a:
+                var hired = await _foreman.HireAsync(new HireRequest(a.TemplateId, a.Model, v[0].Trim()));
+                return Ok($"Hired {hired.Name} as {hired.Role} on {a.Label}", ToastKind.Success);
             default:
                 return Fail("nothing to submit");
         }
@@ -100,6 +118,7 @@ public sealed class Actions
             case CancelTask a: await _foreman.CancelTaskAsync(a.TaskId); return Ok($"Cancelled \"{TaskTitle(a.TaskId)}\"", ToastKind.Info);
             case CancelGoal a: await _foreman.CancelGoalAsync(a.GoalId); return Ok($"Cancelled goal \"{GoalTitle(a.GoalId)}\"", ToastKind.Info);
             case ReloadEmployees: await _foreman.ReloadEmployeesAsync(); return Ok("Employees reloaded from disk", ToastKind.Info);
+            case Fire a: await _foreman.FireAsync(a.EmployeeId); return Ok($"{NameOf(a.EmployeeId)} was let go", ToastKind.Info);
             case OpenBrief a: return await Brief(a.EmployeeId);
             default: return Fail($"unknown action {action.GetType().Name}");
         }
@@ -163,6 +182,14 @@ public sealed class Actions
     private static bool TryMoney(string text, out decimal value)
         => decimal.TryParse(text.Trim().TrimStart('$'), NumberStyles.Number, CultureInfo.InvariantCulture, out value) && value > 0;
 
+    /// <summary>Vendors whose CLI the Setup check found signed in: the brains you can actually hire.</summary>
+    private IReadOnlySet<Vendor> SignedIn() => _snapshot().Setup
+        .Where(s => s.State == CliState.SignedIn)
+        .Select(s => s.Cli.ToLowerInvariant() switch { "claude" => (Vendor?)Vendor.Claude, "codex" => Vendor.Codex, _ => null })
+        .OfType<Vendor>()
+        .ToHashSet();
+
+    private string RoleOf(string templateId) => _hiring?.Templates.FirstOrDefault(t => t.Id == templateId)?.Role ?? templateId;
     private string NameOf(string employeeId) => _snapshot().Employees.TryGetValue(employeeId, out var e) ? e.Name : employeeId;
     private string TaskTitle(string taskId) => _snapshot().Tasks.TryGetValue(taskId, out var t) ? t.Title : taskId;
     private string GoalTitle(string goalId) => _snapshot().Goals.TryGetValue(goalId, out var g) ? g.Title : goalId;

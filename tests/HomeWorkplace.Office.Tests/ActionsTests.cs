@@ -154,3 +154,57 @@ public class ActionsTests
         Assert.Equal("entry 59", journal.Entries[^1].Text);
     }
 }
+
+public class HiringActionsTests
+{
+    private readonly FakeForemanApi _foreman = new();
+    private readonly Toasts _toasts = new();
+    private readonly Actions _actions;
+
+    public HiringActionsTests()
+    {
+        _foreman.Hiring = HiringDialogueTests.Hiring();
+        _foreman.Employees["ada"] = FakeForemanApi.Employee("ada");
+        var setup = new[] { new CliStatus("claude", CliState.SignedIn, "2.1", null), new CliStatus("codex", CliState.InstalledNotSignedIn, "0.1", null) };
+        _actions = new Actions(_foreman, new FakeContextApi(), new Journal(), _toasts,
+            () => new OverlaySnapshot(_foreman.Employees, _foreman.Tasks, _foreman.Goals, Array.Empty<EventDto>(), setup));
+    }
+
+    [Fact]
+    public async Task Opening_the_stand_fetches_the_roles_and_picking_one_shows_its_brains()
+    {
+        var stand = Assert.IsType<OpenDialogue>(await _actions.RunAsync(new OpenHiring()));
+        Assert.Equal("Hiring stand", stand.Dialogue.SpeakerName);
+        Assert.Contains("hiring", _foreman.Calls);
+        Assert.Contains(stand.Dialogue.Options, o => o.Label.StartsWith("Software engineer") && o.Enabled);
+
+        var brains = Assert.IsType<OpenDialogue>(await _actions.RunAsync(new HireRole("engineer")));
+        Assert.Contains(brains.Dialogue.Options, o => o.Label.StartsWith("Claude Fable 5.1") && o.Enabled);
+        Assert.Contains(brains.Dialogue.Options, o => o.Label.StartsWith("GPT-5 Codex") && !o.Enabled);   // codex not signed in
+    }
+
+    [Fact]
+    public async Task Picking_a_brain_asks_for_a_name_then_hires()
+    {
+        var text = Assert.IsType<OpenText>(await _actions.RunAsync(new HireBrain("engineer", "claude-haiku-4-5-20251001", "Claude Haiku 4.5")));
+        Assert.Equal("Name", Assert.Single(text.Entry.Fields).Name);
+        Assert.Contains("Claude Haiku 4.5", text.Entry.Title);
+        foreach (var c in "Grace") text.Entry.Handle(UiKey.Char(c));
+        var submitted = Assert.IsType<TextSubmitted>(text.Entry.Handle(UiKey.Accept).Payload);
+
+        var done = Assert.IsType<Done>(await _actions.SubmitAsync(submitted));
+        Assert.Contains("Grace", done.Message);
+        Assert.Contains("hire:engineer:claude-haiku-4-5-20251001:Grace", _foreman.Calls);
+        Assert.Contains(_toasts.Live, t => t.Kind == ToastKind.Success && t.Text.Contains("Grace"));
+    }
+
+    [Fact]
+    public async Task Letting_someone_go_confirms_then_fires()
+    {
+        var need = Assert.IsType<NeedConfirm>(await _actions.RunAsync(new Fire("ada")));
+        Assert.Contains("Ada", need.Confirm.Question);
+        Assert.IsType<Done>(await _actions.ConfirmedAsync(need.Confirm.Handle(UiKey.Accept).Payload!));
+        Assert.Contains("fire:ada", _foreman.Calls);
+        Assert.DoesNotContain("ada", _foreman.Employees.Keys);
+    }
+}

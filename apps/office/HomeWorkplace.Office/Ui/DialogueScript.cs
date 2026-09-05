@@ -53,6 +53,7 @@ public static class DialogueScript
                 options.Add(new($"Top up: {g.Title}", new TopUp(g.Id)));
         }
         if (failed is not null) options.Add(new("Retry last task", new Retry(failed.Id)));
+        options.Add(new("Let go", new Fire(e.Id)));
         options.Add(new("Reset", new Reset(e.Id)));
         options.Add(new("Leave", new Leave()));
 
@@ -99,4 +100,48 @@ public static class DialogueScript
     }
 
     public static bool IsActive(GoalDto g) => g.Status is GoalState.Planning or GoalState.Running or GoalState.Blocked;
+
+    // ---- the hiring stand ----
+
+    /// <summary>Step one at the stand: which role. A role whose brains all need a sign-in is shown but disabled.</summary>
+    public static Dialogue Hiring(HiringDto hiring, IReadOnlySet<Vendor> signedIn)
+    {
+        var lines = new List<string>
+        {
+            "Who do you need? Prices are about what a day costs at API list",
+            "prices; on a subscription they are notional. Pick a role, a brain, a name.",
+        };
+        if (hiring.Templates.Count == 0) lines.Add("No role templates found under hiring/.");
+
+        var options = new List<DialogueOption>();
+        foreach (var t in hiring.Templates)
+        {
+            var available = t.Brains.Where(b => signedIn.Contains(b.Vendor)).ToList();
+            options.Add(available.Count > 0
+                ? new($"{t.Role}  ${available.Min(b => b.UsdPerDay):0.00}+/day", new HireRole(t.Id))
+                : new($"{t.Role} (sign in)", new HireRole(t.Id), Enabled: false));
+        }
+        options.Add(new("Leave", new Leave()));
+        return new Dialogue(null, "Hiring stand", lines, options) { Portrait = "hiring" };
+    }
+
+    /// <summary>Step two: which brain, priced per run and per day; a brain whose CLI is not signed in cannot be picked.</summary>
+    public static Dialogue Brains(HiringTemplateDto t, IReadOnlySet<Vendor> signedIn)
+    {
+        var lines = new List<string>
+        {
+            $"{t.Role}: {t.Description}",
+            "Pick a brain. Prices are about one working day at API list prices.",
+        };
+        var options = new List<DialogueOption>();
+        foreach (var b in t.Brains)
+        {
+            options.Add(signedIn.Contains(b.Vendor)
+                ? new($"{b.Label}  ${b.UsdPerDay:0.00}/day", new HireBrain(t.Id, b.Model, b.Label))
+                : new($"{b.Label} (sign in)", new HireBrain(t.Id, b.Model, b.Label), Enabled: false));
+        }
+        options.Add(new("Back", new OpenHiring()));
+        options.Add(new("Leave", new Leave()));
+        return new Dialogue(null, "Hiring stand", lines, options) { Portrait = "hiring" };
+    }
 }

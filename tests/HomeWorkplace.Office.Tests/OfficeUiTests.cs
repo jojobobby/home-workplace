@@ -178,3 +178,20 @@ public class UiKeyMappingTests
     public void Letters_do_not_map_they_arrive_as_text_input()
         => Assert.Null(InputMap.UiKeyFor(Microsoft.Xna.Framework.Input.Keys.A));
 }
+
+public class HiringInteractionTests
+{
+    [Fact]
+    public async Task Interacting_with_the_stand_opens_the_hiring_dialogue()
+    {
+        var foreman = new FakeForemanApi { Hiring = HiringDialogueTests.Hiring() };
+        var store = new AppStore();
+        var ui = new OfficeUi(store, foreman, new FakeContextApi(), () => new[] { new CliStatus("claude", CliState.SignedIn, "2.1", null) }, _ => { });
+
+        ui.Interact(new Interactable(InteractKind.HiringStand, null));
+        for (var i = 0; i < 20 && ui.Pending is not null; i++) { await Task.Yield(); ui.Update(0.016f); }
+
+        var d = Assert.IsType<Dialogue>(ui.State.Top);
+        Assert.Equal("Hiring stand", d.SpeakerName);
+    }
+}

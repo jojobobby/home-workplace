@@ -102,6 +102,7 @@ public sealed class Overlay : ILayer
                 new("Give a task", new GiveTask(e.Id)),
                 e.Status == EmployeeStatus.Asleep ? new("Wake", new Wake(e.Id)) : new("Sleep", new Sleep(e.Id)),
                 new("Reset", new Reset(e.Id)),
+                new("Let go", new Fire(e.Id)),
             };
             yield return new OverlayRow(e.Id, $"{e.Name}  {e.Status}  {title}", actions);
         }
