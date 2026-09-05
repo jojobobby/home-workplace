@@ -27,7 +27,7 @@ The game boots the context API and Foreman itself (same `app.json` as the deskto
 | M | mute |
 | F12 | save the current frame to `frames/` beside the exe |
 | R | retry a failed boot |
-| Esc | back out of a dialogue or menu; quit when nothing is open |
+| Esc | back out of a dialogue or menu (close the window to quit) |
 
 Dev flags for unattended runs: `--clock HH:mm` fixes the office clock (see night lighting
 at noon), `--frames-every N` saves a frame every N seconds, `--exit-after N` quits, and

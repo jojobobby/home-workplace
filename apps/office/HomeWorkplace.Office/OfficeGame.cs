@@ -20,7 +20,7 @@ namespace HomeWorkplace.Office;
 ///
 /// Keys: WASD walk · E talk · Tab menu · arrows pan · wheel zoom · drag pan · click an
 /// employee, the whiteboard or a toast · F3 debug · M mute · F12 save a frame to frames/ ·
-/// R retry a failed boot · Esc back / quit.
+/// R retry a failed boot · Esc backs out of dialogues and menus (close the window to quit).
 /// </summary>
 public sealed class OfficeGame : Game
 {
@@ -172,7 +172,7 @@ public sealed class OfficeGame : Game
         var keys = Keyboard.GetState();
         var mouse = Mouse.GetState();
 
-        if (Pressed(keys, Keys.Escape) && !_office.IsOpen) { Exit(); return; }
+        // Escape never quits: it only backs out of dialogues and menus (closing the window quits).
         if (!_office.Typing)
         {
             if (Pressed(keys, Keys.F3)) _debug = !_debug;
@@ -494,7 +494,7 @@ public sealed class OfficeGame : Game
         {
             y += hud.LineHeight;
             hud.Text(_bootError ?? "", 24, y, new Color(0xf0, 0x8c, 0x8c)); y += hud.LineHeight * 2;
-            hud.Text("R  retry     Esc  quit", 24, y, new Color(0xf4, 0xf1, 0xe8));
+            hud.Text("R  retry     (close the window to quit)", 24, y, new Color(0xf4, 0xf1, 0xe8));
         }
     }
 
