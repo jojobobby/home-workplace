@@ -73,11 +73,11 @@ public sealed class UiRenderer
         var remaining = d.Revealed;
         var ly = y0 + UiLayout.DialogueLinesY;
         var shown = 0;
-        foreach (var line in d.Lines.SelectMany(l => TextEntry.Wrap(l, 64)))
+        foreach (var line in d.Lines.SelectMany(l => Markup.Wrap(l, 64)))
         {
             if (shown >= 4 || remaining <= 0) break;
             _hud.Text(line, 64, ly, Text, maxChars: remaining);
-            remaining -= line.Length;
+            remaining -= Markup.VisibleLength(line);
             ly += Line;
             shown++;
         }
@@ -126,7 +126,7 @@ public sealed class UiRenderer
             _hud.Fill(x0 + 12, y - 2, width - 24, lines * Line + 2, Field);
             var wrapped = TextEntry.Wrap(t.Values[i], cols);
             for (var l = 0; l < Math.Min(lines, wrapped.Count); l++)
-                _hud.Text(wrapped[l], x0 + 16, y + l * Line, Text);
+                _hud.Text(wrapped[l], x0 + 16, y + l * Line, Text, literal: true);   // what was typed, brackets and all
 
             if (current && (time % 1f) < 0.5f)
             {
@@ -148,7 +148,7 @@ public sealed class UiRenderer
     private void DrawConfirm(Confirm c)
     {
         const int width = 264;
-        var lines = TextEntry.Wrap(c.Question, (width - 24) / PixelFont.Advance);
+        var lines = Markup.Wrap(c.Question, (width - 24) / PixelFont.Advance);
         var height = 16 + lines.Count * Line + 20;
         var x0 = (W - width) / 2;
         var y0 = (H - height) / 2;
@@ -184,7 +184,7 @@ public sealed class UiRenderer
             var rect = UiLayout.OverlayRowRect(i - first);
             var selected = i == o.Selected;
             if (selected) _hud.Fill(rect.X, rect.Y, rect.W, rect.H, Highlight);
-            _hud.Text(o.Rows[i].Text, rect.X + 4, rect.Y + 2, selected ? Ink : Text, maxChars: 74);
+            _hud.Text(o.Rows[i].Text, rect.X + 4, rect.Y + 2, selected ? Ink : Text, maxChars: 74, monochrome: selected);   // ink on the highlight bar: colours would fight it
         }
         if (o.Rows.Count == 0) _hud.Text("nothing here yet", 20, 38, Dim);
 

@@ -31,7 +31,8 @@ public sealed class Dialogue : ILayer
     /// <summary>Atlas sprite drawn as the portrait when there is no speaking employee (the whiteboard, the hiring stand).</summary>
     public string Portrait { get; init; } = "whiteboard";
 
-    public int TotalChars => Lines.Sum(l => l.Length);
+    /// <summary>Visible characters across all lines; markup tags reveal for free.</summary>
+    public int TotalChars => Lines.Sum(Markup.VisibleLength);
     public int Revealed => Math.Min(TotalChars, (int)_revealed);
     public bool IsRevealed => Revealed >= TotalChars;
 

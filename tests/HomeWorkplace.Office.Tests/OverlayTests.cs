@@ -63,7 +63,7 @@ public class OverlayTests
 
         o.Handle(UiKey.Tab);   // Activity, newest first
         Assert.Equal(2, o.Rows.Count);
-        Assert.StartsWith(DateTimeOffset.Parse("2026-09-04T10:05:00Z").ToLocalTime().ToString("HH:mm"), o.Rows[0].Text);
+        Assert.StartsWith(DateTimeOffset.Parse("2026-09-04T10:05:00Z").ToLocalTime().ToString("HH:mm"), Markup.Strip(o.Rows[0].Text));
         Assert.Contains("human.needed", o.Rows[0].Text);
         Assert.Empty(o.Rows[0].Actions);
 

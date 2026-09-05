@@ -10,7 +10,7 @@ public class DialogueTests
 
     private static Dictionary<string, TaskDto> Tasks(params TaskDto[] tasks) => tasks.ToDictionary(t => t.Id);
     private static Dictionary<string, GoalDto> Goals(params GoalDto[] goals) => goals.ToDictionary(g => g.Id);
-    private static string[] Labels(Dialogue d) => d.Options.Select(o => o.Label).ToArray();
+    private static string[] Labels(Dialogue d) => d.Options.Select(o => Markup.Strip(o.Label)).ToArray();
 
     [Fact]
     public void An_asleep_employee_offers_wake()
@@ -163,7 +163,7 @@ public class HiringDialogueTests
         var d = DialogueScript.Hiring(Hiring(), new HashSet<Vendor> { Vendor.Codex });   // only Codex signed in
         Assert.Equal("Hiring stand", d.SpeakerName);
         Assert.Contains(d.Lines, l => l.Contains("notional", StringComparison.OrdinalIgnoreCase));
-        Assert.Equal(new[] { "Software engineer  $0.93+/day", "Engineering manager (sign in)", "Leave" }, d.Options.Select(o => o.Label));
+        Assert.Equal(new[] { "Software engineer  $0.93+/day", "Engineering manager (sign in)", "Leave" }, d.Options.Select(o => Markup.Strip(o.Label)));
         Assert.Equal(new HireRole("engineer"), d.Options[0].Action);
         Assert.False(d.Options[1].Enabled);
     }
@@ -173,10 +173,11 @@ public class HiringDialogueTests
     {
         var d = DialogueScript.Brains(Hiring().Templates[0], new HashSet<Vendor> { Vendor.Claude });
         Assert.Contains(d.Lines, l => l.Contains("Builds features"));
-        Assert.Equal("Claude Haiku 4.5  $0.60/day", d.Options[0].Label);
+        Assert.Equal("Claude Haiku 4.5  $0.60/day", Markup.Strip(d.Options[0].Label));
+        Assert.Contains("[small green]$0.60/day[/]", d.Options[0].Label);   // the price is a small green detail
         Assert.Equal(new HireBrain("engineer", "claude-haiku-4-5-20251001", "Claude Haiku 4.5"), d.Options[0].Action);
         Assert.True(d.Options[0].Enabled);
-        Assert.Equal("GPT-5 Codex (sign in)", d.Options[2].Label);
+        Assert.Equal("GPT-5 Codex (sign in)", Markup.Strip(d.Options[2].Label));
         Assert.False(d.Options[2].Enabled);
         Assert.Equal("Back", d.Options[3].Label);
         Assert.IsType<OpenHiring>(d.Options[3].Action);
@@ -218,13 +219,13 @@ public class TicketDialogueTests
         Assert.Equal("tickets", d.Portrait);
         Assert.Contains(d.Lines, l => l.Contains("Fix the parser") && l.Contains("Software engineer") && l.Contains("3 min"));
         Assert.Contains(d.Lines, l => l.Contains("Write docs") && l.Contains("any role") && l.Contains("2 h"));
-        Assert.Equal(new[] { "Post a ticket", "Take down: Fix the parser", "Take down: Write docs", "Leave" }, d.Options.Select(o => o.Label));
+        Assert.Equal(new[] { "Post a ticket", "Take down: Fix the parser", "Take down: Write docs", "Leave" }, d.Options.Select(o => Markup.Strip(o.Label)));
         Assert.IsType<PickTicketRole>(d.Options[0].Action);
         Assert.Equal(new CancelTask("t1"), d.Options[1].Action);
 
         var empty = DialogueScript.Tickets(Array.Empty<TaskDto>(), Now);
         Assert.Contains(empty.Lines, l => l.Contains("empty", StringComparison.OrdinalIgnoreCase));
-        Assert.Equal(new[] { "Post a ticket", "Leave" }, empty.Options.Select(o => o.Label));
+        Assert.Equal(new[] { "Post a ticket", "Leave" }, empty.Options.Select(o => Markup.Strip(o.Label)));
     }
 
     [Fact]
@@ -237,7 +238,7 @@ public class TicketDialogueTests
             new EmployeeDto { Id = "rex", Name = "Rex", Role = "Code reviewer" },
         };
         var d = DialogueScript.TicketRoles(employees);
-        Assert.Equal(new[] { "Any role", "Code reviewer", "Software engineer", "Leave" }, d.Options.Select(o => o.Label));
+        Assert.Equal(new[] { "Any role", "Code reviewer", "Software engineer", "Leave" }, d.Options.Select(o => Markup.Strip(o.Label)));
         Assert.Equal(new PostTicket(null), d.Options[0].Action);
         Assert.Equal(new PostTicket("Software engineer"), d.Options[2].Action);
     }
@@ -252,7 +253,7 @@ public class BossDeskDialogueTests
         var d = DialogueScript.BossDesk(paths);
         Assert.Equal("Your desk", d.SpeakerName);
         Assert.Contains(d.Lines, l => l.Contains("Main Office"));
-        Assert.Equal(new[] { "Open the office folder", "Open the workspaces", "Open the employees", "Leave" }, d.Options.Select(o => o.Label));
+        Assert.Equal(new[] { "Open the office folder", "Open the workspaces", "Open the employees", "Leave" }, d.Options.Select(o => Markup.Strip(o.Label)));
         Assert.Equal(new OpenFolder(paths.Root), d.Options[0].Action);
         Assert.Equal(new OpenFolder(paths.Workspaces), d.Options[1].Action);
         Assert.Equal(new OpenFolder(paths.Employees), d.Options[2].Action);

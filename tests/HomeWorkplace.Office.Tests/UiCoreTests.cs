@@ -154,3 +154,34 @@ public class ToastTests
         Assert.Equal(ToastKind.Attention, toasts.Live[0].Kind);
     }
 }
+
+public class MarkupTests
+{
+    [Fact]
+    public void Tags_become_runs_and_unknown_brackets_stay_text()
+    {
+        var runs = Markup.Parse("Cost [small green]$0.60/day[/] for [gold]Ada[/] [x] done");
+        Assert.Equal(new[] { "Cost ", "$0.60/day", " for ", "Ada", " [x] done" }, runs.Select(r => r.Text));
+        Assert.Equal("green", runs[1].Color); Assert.True(runs[1].Small);
+        Assert.Equal("gold", runs[3].Color); Assert.False(runs[3].Small);
+        Assert.Null(runs[0].Color);
+        Assert.Equal("Cost $0.60/day for Ada [x] done", Markup.Strip("Cost [small green]$0.60/day[/] for [gold]Ada[/] [x] done"));
+    }
+
+    [Fact]
+    public void Measure_counts_small_runs_at_four_pixels_and_clip_keeps_tags()
+    {
+        Assert.Equal(5 * 6 + 3 * 4, Markup.Measure("Hello[small]abc[/]"));
+        Assert.Equal("He[gold]ll[/]", Markup.Clip("He[gold]llo[/] there", 4));
+        Assert.Equal(4, Markup.VisibleLength(Markup.Clip("He[gold]llo[/] there", 4)));
+    }
+
+    [Fact]
+    public void Wrap_ignores_tag_weight_and_reopens_a_tag_across_lines()
+    {
+        var lines = Markup.Wrap("say [gold]hello big world[/] now", 10);
+        Assert.Equal(new[] { "say [gold]hello[/]", "[gold]big world[/]", "now" }, lines);
+        Assert.Equal(new[] { "the quick", "brown fox", "jumps" }, Markup.Wrap("the quick brown fox jumps", 10));
+        Assert.Equal(new[] { "abcdefghij", "klm" }, Markup.Wrap("abcdefghijklm", 10));
+    }
+}

@@ -18,22 +18,22 @@ public static class DialogueScript
         lines.Add(e.Status switch
         {
             EmployeeStatus.Asleep => $"Zzz... {e.Name} is asleep. Wake them to bring them in.",
-            EmployeeStatus.Working when current is not null => $"Hi, I'm {e.Name}. I'm working on \"{current.Title}\".",
-            EmployeeStatus.Waiting when current is not null => $"Hi, I'm {e.Name}. I'm waiting on a teammate for \"{current.Title}\".",
+            EmployeeStatus.Working when current is not null => $"Hi, I'm {e.Name}. I'm working on [gold]\"{current.Title}\"[/].",
+            EmployeeStatus.Waiting when current is not null => $"Hi, I'm {e.Name}. I'm waiting on a teammate for [gold]\"{current.Title}\"[/].",
             _ => $"Hi, I'm {e.Name}, {e.Role.ToLowerInvariant()}. I'm free. Got something for me?",
         });
-        lines.Add($"Energy {e.Energy}%, {e.RunsToday} run{(e.RunsToday == 1 ? "" : "s")} today.");
+        lines.Add($"[small dim]Energy [{StatusColor.Energy(e.Energy)}]{e.Energy}%[/], [gold]{e.RunsToday}[/] run{(e.RunsToday == 1 ? "" : "s")} today.[/]");
         if (needsHuman is not null)
         {
-            if (needsHuman.AwaitingApproval) lines.Add($"\"{needsHuman.Title}\" is done and needs your approval.");
-            if (needsHuman.PendingQuestion is { } q) lines.Add($"I need you: {q}");
+            if (needsHuman.AwaitingApproval) lines.Add($"[gold]\"{needsHuman.Title}\"[/] is done and needs your approval.");
+            if (needsHuman.PendingQuestion is { } q) lines.Add($"I need you: [gold]{q}[/]");
         }
         if (failed is not null && needsHuman is null)
         {
             var reason = failed.Runs.LastOrDefault(r => r.Status == "Failed")?.ResultSummary;
             lines.Add(reason is { Length: > 0 } && reason != "run failed"
-                ? $"My last task, \"{failed.Title}\", failed: {reason}"
-                : $"My last task, \"{failed.Title}\", failed.");
+                ? $"My last task, [gold]\"{failed.Title}\"[/], [red]failed[/]: [small red]{reason}[/]"
+                : $"My last task, [gold]\"{failed.Title}\"[/], [red]failed[/].");
         }
 
         var options = new List<DialogueOption>();
@@ -73,9 +73,9 @@ public static class DialogueScript
             lines.Add("Goals on the board:");
             foreach (var g in ordered.Take(4))
             {
-                lines.Add($"- {g.Title}: {g.Status}, ${g.SpentUsd:0.00} of ${g.BudgetUsd:0.00}");
+                lines.Add($"- [gold]{g.Title}[/]: [small dim][{StatusColor.Of(g.Status)}]{g.Status}[/], [green]${g.SpentUsd:0.00}[/] of ${g.BudgetUsd:0.00}[/]");
                 if (g.LastError is { Length: > 0 } err && IsActive(g))
-                    lines.Add($"  manager run failed: {(err.Length > 70 ? err[..70] + "..." : err)}");
+                    lines.Add($"  [small red]manager run failed: {(err.Length > 70 ? err[..70] + "..." : err)}[/]");
             }
         }
         if (manager is null && ordered.Count == 0) lines.Add("Hire a manager to set goals.");
@@ -84,7 +84,7 @@ public static class DialogueScript
             .Select(g => staff.TryGetValue(g.Manager, out var m) && m.Status == EmployeeStatus.Asleep ? m : null)
             .Where(m => m is not null).Select(m => m!).DistinctBy(m => m.Id).ToList();
         foreach (var m in sleeping)
-            lines.Add($"{m.Name} is asleep; their goals wait until they wake. Wake them to start now.");
+            lines.Add($"[gold]{m.Name}[/] is asleep; their goals wait until they wake. Wake them to start now.");
 
         var options = new List<DialogueOption>();
         foreach (var m in sleeping) options.Add(new($"Wake {m.Name}", new Wake(m.Id)));
@@ -110,7 +110,7 @@ public static class DialogueScript
             return new Dialogue(null, "Your desk", new[] { "The office folder is not set up on this machine." }, new[] { new DialogueOption("Leave", new Leave()) }) { Portrait = "bossdesk" };
 
         var lines = new List<string> { $"{System.IO.Path.GetFileName(paths.Root)}: the company lives in" };
-        lines.AddRange(TextEntry.Wrap(paths.Root, 64));
+        lines.AddRange(TextEntry.Wrap(paths.Root, 64).Select(l => $"[small dim]{l}[/]"));
         lines.Add("workspaces is where the agents do their work, one folder per task.");
         var options = new List<DialogueOption>
         {
@@ -131,9 +131,9 @@ public static class DialogueScript
         if (tickets.Count == 0) lines.Add("The board is empty. Post a ticket and an idle employee of that role takes it.");
         else
         {
-            lines.Add($"{tickets.Count} ticket{(tickets.Count == 1 ? "" : "s")} pinned. Idle employees of the right role take them.");
+            lines.Add($"[gold]{tickets.Count}[/] ticket{(tickets.Count == 1 ? "" : "s")} pinned. Idle employees of the right role take them.");
             foreach (var t in tickets.Take(3))
-                lines.Add($"- {t.Title} ({t.Role ?? "any role"}, {Age(now - t.CreatedAt)}{(t.BudgetUsd is { } b ? $", ${b:0.00}" : "")})");
+                lines.Add($"- [gold]{t.Title}[/] [small dim]([blue]{t.Role ?? "any role"}[/], {Age(now - t.CreatedAt)}{(t.BudgetUsd is { } b ? $", [green]${b:0.00}[/]" : "")})[/]");
         }
 
         var options = new List<DialogueOption> { new("Post a ticket", new PickTicketRole()) };
@@ -175,8 +175,8 @@ public static class DialogueScript
         {
             var available = t.Brains.Where(b => signedIn.Contains(b.Vendor)).ToList();
             options.Add(available.Count > 0
-                ? new($"{t.Role}  ${available.Min(b => b.UsdPerDay):0.00}+/day", new HireRole(t.Id))
-                : new($"{t.Role} (sign in)", new HireRole(t.Id), Enabled: false));
+                ? new($"{t.Role}  [small green]${available.Min(b => b.UsdPerDay):0.00}+/day[/]", new HireRole(t.Id))
+                : new($"{t.Role} [small dim](sign in)[/]", new HireRole(t.Id), Enabled: false));
         }
         options.Add(new("Leave", new Leave()));
         return new Dialogue(null, "Hiring stand", lines, options) { Portrait = "hiring" };
@@ -187,15 +187,15 @@ public static class DialogueScript
     {
         var lines = new List<string>
         {
-            $"{t.Role}: {t.Description}",
+            $"{t.Role}: [small dim]{t.Description}[/]",
             "Pick a brain. Prices are about one working day at API list prices.",
         };
         var options = new List<DialogueOption>();
         foreach (var b in t.Brains)
         {
             options.Add(signedIn.Contains(b.Vendor)
-                ? new($"{b.Label}  ${b.UsdPerDay:0.00}/day", new HireBrain(t.Id, b.Model, b.Label))
-                : new($"{b.Label} (sign in)", new HireBrain(t.Id, b.Model, b.Label), Enabled: false));
+                ? new($"{b.Label}  [small green]${b.UsdPerDay:0.00}/day[/]", new HireBrain(t.Id, b.Model, b.Label))
+                : new($"{b.Label} [small dim](sign in)[/]", new HireBrain(t.Id, b.Model, b.Label), Enabled: false));
         }
         options.Add(new("Back", new OpenHiring()));
         options.Add(new("Leave", new Leave()));

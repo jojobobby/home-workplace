@@ -84,11 +84,11 @@ public static class UiLayout
 
     // ---- toasts ----
     public const int ToastMaxChars = 44;
-    public static string ToastText(string text) => text.Length > ToastMaxChars ? text[..ToastMaxChars] : text;
+    public static string ToastText(string text) => Markup.Clip(text, ToastMaxChars);
 
     public static UiRect ToastRect(int index, string text)
     {
-        var w = PixelFont.Measure(ToastText(text)) + 12;
+        var w = Markup.Measure(ToastText(text)) + 12;
         return new UiRect(W - 8 - w, 8 + index * (Line + 6), w, Line + 4);
     }
 

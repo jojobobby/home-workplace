@@ -66,7 +66,7 @@ public sealed class Overlay : ILayer
             case UiKeyKind.Accept:
                 if (SelectedRow is { } row && row.Actions.Count > 0)
                 {
-                    var menu = new Dialogue(null, row.Text, new[] { row.Text }, row.Actions.Append(new DialogueOption("Leave", new Leave())).ToList());
+                    var menu = new Dialogue(null, Markup.Strip(row.Text), new[] { row.Text }, row.Actions.Append(new DialogueOption("Leave", new Leave())).ToList());
                     menu.CompleteReveal();   // a menu, not a speech: no typewriter
                     return LayerResult.Push(menu);
                 }
@@ -104,7 +104,7 @@ public sealed class Overlay : ILayer
                 new("Reset", new Reset(e.Id)),
                 new("Let go", new Fire(e.Id)),
             };
-            yield return new OverlayRow(e.Id, $"{e.Name}  {e.Status}  {title}", actions);
+            yield return new OverlayRow(e.Id, $"{e.Name}  [small {StatusColor.Of(e.Status)}]{e.Status}[/]  {title}", actions);
         }
     }
 
@@ -130,7 +130,7 @@ public sealed class Overlay : ILayer
                     actions.Add(new("Cancel task", new CancelTask(t.Id)));
                     break;
             }
-            yield return new OverlayRow(t.Id, $"{t.Title}  {t.Status}  {(t.Assignee.Length == 0 ? "(board)" : t.Assignee)}", actions);
+            yield return new OverlayRow(t.Id, $"{t.Title}  [small {StatusColor.Of(t.Status)}]{t.Status}[/]  [small dim]{(t.Assignee.Length == 0 ? "(board)" : t.Assignee)}[/]", actions);
         }
     }
 
@@ -141,20 +141,20 @@ public sealed class Overlay : ILayer
             var actions = DialogueScript.IsActive(g)
                 ? new List<DialogueOption> { new("Top up", new TopUp(g.Id)), new("Cancel goal", new CancelGoal(g.Id)) }
                 : new List<DialogueOption>();
-            yield return new OverlayRow(g.Id, $"{g.Title}  {g.Status}  ${g.SpentUsd:0.00}/${g.BudgetUsd:0.00}  {g.Manager}", actions);
+            yield return new OverlayRow(g.Id, $"{g.Title}  [small {StatusColor.Of(g.Status)}]{g.Status}[/]  [small green]${g.SpentUsd:0.00}[/][small dim]/${g.BudgetUsd:0.00}  {g.Manager}[/]", actions);
         }
     }
 
     private IEnumerable<OverlayRow> ActivityRowsOf()
     {
         foreach (var e in _snapshot.Events.OrderByDescending(e => e.Seq).Take(ActivityRows))
-            yield return new OverlayRow(e.Seq.ToString(), $"{e.Timestamp.ToLocalTime():HH:mm}  {e.Type}  {e.EmployeeId ?? ""}".TrimEnd(), Array.Empty<DialogueOption>());
+            yield return new OverlayRow(e.Seq.ToString(), $"[small dim]{e.Timestamp.ToLocalTime():HH:mm}[/]  {e.Type}{(e.EmployeeId is { Length: > 0 } who ? $"  [small dim]{who}[/]" : "")}", Array.Empty<DialogueOption>());
     }
 
     private IEnumerable<OverlayRow> SetupRows()
     {
         foreach (var s in _snapshot.Setup)
-            yield return new OverlayRow("cli:" + s.Cli, $"{s.Cli}  {s.State}  {s.Version ?? s.Detail ?? ""}".TrimEnd(), Array.Empty<DialogueOption>());
+            yield return new OverlayRow("cli:" + s.Cli, $"{s.Cli}  [small {StatusColor.Of(s.State)}]{s.State}[/]{((s.Version ?? s.Detail) is { Length: > 0 } detail ? $"  [small dim]{detail}[/]" : "")}", Array.Empty<DialogueOption>());
         yield return new OverlayRow("reload", "Reload employees", new[] { new DialogueOption("Reload employees", new ReloadEmployees()) });
     }
 }
