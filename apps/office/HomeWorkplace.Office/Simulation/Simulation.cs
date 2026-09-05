@@ -16,6 +16,7 @@ public sealed class Simulation
     private const float TalkTime = 3f;
     private const float SparkInterval = 2f;
     private const float KeyInterval = 0.09f;
+    private const float BoardTime = 1.2f;         // taking a ticket off the board
     private const float SteamInterval = 1f;
 
     private readonly Dictionary<string, Agent> _agents = new(StringComparer.Ordinal);
@@ -92,8 +93,21 @@ public sealed class Simulation
             case WrapUpWritten w when _agents.TryGetValue(w.Id, out var wr):
                 Emit(MomentKind.Sound, "page", At(wr), 0.5f);
                 break;
+
+            case TicketClaimed tc when _agents.TryGetValue(tc.Id, out var taker) && taker.Visible:
+                taker.OnErrand = true;
+                taker.Bubble = null;
+                WalkTo(taker, World.TicketSpot, Activity.WalkingToBoard);
+                break;
+
+            case TicketsChanged t:
+                OpenTickets = Math.Max(0, t.Count);
+                break;
         }
     }
+
+    /// <summary>Tickets pinned on the board right now (the renderer picks the board sprite by it).</summary>
+    public int OpenTickets { get; private set; }
 
     // ---- tick ------------------------------------------------------------------------
 
@@ -120,6 +134,7 @@ public sealed class Simulation
                 case Activity.WalkingBack:
                 case Activity.WalkingToTeammate:
                 case Activity.WalkingHome:
+                case Activity.WalkingToBoard:
                     Walk(agent, dt);
                     break;
 
@@ -138,6 +153,16 @@ public sealed class Simulation
                         agent.EffectTimer = SteamInterval;
                     }
                     if (agent.ActivityTimer <= 0) WalkTo(agent, SeatOf(agent), Activity.WalkingBack);
+                    break;
+
+                case Activity.AtBoard:
+                    agent.ActivityTimer -= dt;
+                    if (agent.ActivityTimer <= 0)
+                    {
+                        agent.OnErrand = false;
+                        agent.Bubble = null;
+                        Retarget(agent);   // back to whatever the status calls for (typing, usually)
+                    }
                     break;
 
                 case Activity.Typing:
@@ -249,6 +274,13 @@ public sealed class Simulation
                 agent.Anim = Anim.Idle;
                 agent.Bubble = null;
                 Emit(MomentKind.Sound, "door", World.Spawn, 0.5f);
+                break;
+            case Activity.WalkingToBoard:
+                agent.Activity = Activity.AtBoard;
+                agent.Anim = Anim.Idle;
+                agent.ActivityTimer = BoardTime;
+                agent.Bubble = new Bubble(BubbleKind.Exclaim, BoardTime + 0.5f, persistent: false);
+                Emit(MomentKind.Sound, "page", World.TicketSpot, 0.5f);
                 break;
         }
     }

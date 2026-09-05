@@ -3,7 +3,7 @@ using HomeWorkplace.Client;
 
 namespace HomeWorkplace.Office.Sim;
 
-public enum Activity { Absent, Arriving, IdleAtDesk, WalkingToCoffee, AtCoffee, WalkingBack, Typing, WalkingToTeammate, Talking, WalkingHome }
+public enum Activity { Absent, Arriving, IdleAtDesk, WalkingToCoffee, AtCoffee, WalkingBack, Typing, WalkingToTeammate, Talking, WalkingHome, WalkingToBoard, AtBoard }
 
 public enum Anim { Idle, Walk, Type, Talk }
 

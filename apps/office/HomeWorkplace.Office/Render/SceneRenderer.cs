@@ -182,6 +182,7 @@ public sealed class SceneRenderer : IDisposable
                 PropKind.Whiteboard => "whiteboard",
                 PropKind.Plant => "plant",
                 PropKind.HiringStand => "hiring",
+                PropKind.TicketBoard => sim.OpenTickets > 0 ? "tickets" : "tickets_empty",
                 _ => "floor",
             };
             Blit(_manifest.Get(name).Frames[0], prop.Pos.X * Agent.TileSize, prop.Pos.Y * Agent.TileSize);
@@ -231,6 +232,11 @@ public sealed class SceneRenderer : IDisposable
         {
             var stand = sim.World.Props.First(p => p.Kind == PropKind.HiringStand);
             Blit(prompt, (stand.Pos.X + stand.Width / 2) * Agent.TileSize - prompt.W / 2, stand.Pos.Y * Agent.TileSize - 12);
+        }
+        else if (target.Kind == InteractKind.TicketBoard)
+        {
+            var board = sim.World.Props.First(p => p.Kind == PropKind.TicketBoard);
+            Blit(prompt, (board.Pos.X + board.Width / 2) * Agent.TileSize - prompt.W / 2, (board.Pos.Y + board.Height) * Agent.TileSize + 2);
         }
     }
 

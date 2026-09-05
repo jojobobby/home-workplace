@@ -403,6 +403,7 @@ public sealed class OfficeGame : Game
                 var world = _camera.ScreenToWorld(native);
                 if (HitTest.AgentAt(_sim, world) is { } agent) _office.OpenEmployee(agent.Id);
                 else if (OnProp(_sim, PropKind.HiringStand, world)) _office.Interact(new Interactable(InteractKind.HiringStand, null));
+                else if (OnProp(_sim, PropKind.TicketBoard, world)) _office.Interact(new Interactable(InteractKind.TicketBoard, null));
                 else if (OnWhiteboard(_sim, world)) _office.OpenWhiteboard();
             }
             _dragFrom = null;

@@ -57,12 +57,24 @@ public sealed class ForemanFeed
                 case "wrapup.written":
                     commands.Add(new WrapUpWritten(who));
                     break;
+                case "task.claimed":
+                    commands.Add(new TicketClaimed(who));
+                    break;
             }
+        }
+
+        var open = tasks.Values.Count(t => t.Status == TaskState.Queued && t.Assignee.Length == 0);
+        if (open != _lastTickets)
+        {
+            commands.Add(new TicketsChanged(open));
+            _lastTickets = open;
         }
 
         _last = new Dictionary<string, EmployeeDto>(employees, StringComparer.Ordinal);
         return commands;
     }
+
+    private int _lastTickets;   // the simulation starts at zero, so a first empty board is not news
 
     private static string? TaskTitle(EmployeeDto e, IReadOnlyDictionary<string, TaskDto> tasks)
         => e.CurrentTaskId is { } id && tasks.TryGetValue(id, out var t) ? t.Title : null;

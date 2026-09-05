@@ -13,3 +13,7 @@ public sealed record HandoffAnswered(string Id) : SimCommand;
 public sealed record HumanNeeded(string Id) : SimCommand;
 public sealed record RunFinished(string Id, bool Succeeded) : SimCommand;
 public sealed record WrapUpWritten(string Id) : SimCommand;
+/// <summary>An employee took a ticket off the board: they walk there, take it, and walk back.</summary>
+public sealed record TicketClaimed(string Id) : SimCommand;
+/// <summary>How many tickets are pinned right now (drives the board's look).</summary>
+public sealed record TicketsChanged(int Count) : SimCommand;

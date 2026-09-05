@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace HomeWorkplace.Office.Sim;
 
-public enum InteractKind { Employee, Whiteboard, HiringStand }
+public enum InteractKind { Employee, Whiteboard, HiringStand, TicketBoard }
 
 /// <summary>What the player can talk to from where they stand.</summary>
 public readonly record struct Interactable(InteractKind Kind, string? EmployeeId);
@@ -78,6 +78,8 @@ public sealed class Player
 
         if (Vector2.Distance(Position, Agent.Centre(_world.HiringSpot)) <= Reach)
             return new Interactable(InteractKind.HiringStand, null);
+        if (Vector2.Distance(Position, Agent.Centre(_world.TicketSpot)) <= Reach)
+            return new Interactable(InteractKind.TicketBoard, null);
         if (Vector2.Distance(Position, Agent.Centre(_world.WhiteboardSpot)) <= Reach)
             return new Interactable(InteractKind.Whiteboard, null);
         return null;

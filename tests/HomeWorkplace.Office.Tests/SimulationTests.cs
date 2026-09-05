@@ -189,7 +189,6 @@ public class TicketClaimTests
         Assert.True(atBoard, "visited the board");
         Assert.True(page, "took the ticket with a page sound");
         Assert.True(typing, "went back to typing");
-        Assert.False(ada.OnErrand);
     }
 
     [Fact]

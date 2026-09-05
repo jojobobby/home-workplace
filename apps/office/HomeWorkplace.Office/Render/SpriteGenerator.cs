@@ -51,6 +51,8 @@ public static class SpriteGenerator
             ("light", 64, 64, 1, 0, (_, p) => PaintLight(p)),
             ("e_prompt", 9, 9, 1, 0, (_, p) => PaintPrompt(p)),
             ("hiring", 32, Tile, 1, 0, (_, p) => PaintHiring(p)),
+            ("tickets", 64, Tile, 1, 0, (_, p) => PaintTickets(p, notes: 4)),
+            ("tickets_empty", 64, Tile, 1, 0, (_, p) => PaintTickets(p, notes: 0)),
             ("panel", 12, 12, 1, 0, (_, p) => PaintPanel(p, dark: false)),
             ("panel_dark", 12, 12, 1, 0, (_, p) => PaintPanel(p, dark: true)),
         };
@@ -218,6 +220,21 @@ public static class SpriteGenerator
         p.Rect(2, 2, 8, 8, dark ? BorderDark : Panel);
         p.Rect(3, 3, 6, 6, dark ? Frame : Panel);
         if (!dark) { p.Rect(2, 9, 8, 1, Frame); p.Rect(9, 2, 1, 8, Frame); }   // shadowed bottom/right inner edge
+    }
+
+    /// <summary>The ticket board: a cork board in a wooden frame, with pinned notes while tickets are open.</summary>
+    private static void PaintTickets(Painter p, int notes)
+    {
+        p.Rect(0, 2, 64, 12, Wood);                              // frame
+        p.Rect(2, 4, 60, 8, Pot);                                // cork
+        for (var i = 0; i < notes; i++)
+        {
+            var x = 6 + i * 14;
+            p.Rect(x, 5, 9, 6, i % 2 == 0 ? Text : Gold);        // a note
+            p.Px(x + 4, 5, Red);                                  // its pin
+            p.Rect(x + 1, 8, 6, 1, TextDim);                     // a line of writing
+        }
+        p.Rect(28, 13, 8, 1, BorderDark);                        // hook shadow
     }
 
     /// <summary>The hiring stand: a wooden counter with a white sign reading HIRE on a gold post.</summary>
