@@ -36,13 +36,45 @@ public sealed class TaskBook
     }
 
     /// <summary>A ticket: a task nobody owns yet, pinned for an employee of the right role to claim.</summary>
-    public async Task<TaskModel> CreateTicketAsync(CreateTicketRequest req, CancellationToken ct)
+    public async Task<TaskModel> CreateTicketAsync(CreateTicketRequest req, CancellationToken ct, string? goalId = null)
     {
         var role = string.IsNullOrWhiteSpace(req.Role) ? null : req.Role.Trim();
-        var task = NewTask(req.Title!, req.Brief!, assignee: "", role, req.RequiresApproval, goalId: null);
+        var task = NewTask(req.Title!, req.Brief!, assignee: "", role, req.RequiresApproval, goalId);
+        if (req.BudgetUsd is { } budget) { task.BudgetUsd = budget; Save(task); }
         await _rooms.PostAsync(task.Room, "foreman", "Foreman", null,
             $"Ticket posted: {task.Title} ({role ?? "any role"}). Waiting for someone to pick it up.", ct);
         return task;
+    }
+
+    /// <summary>A manager took the ticket: it now waits on the goal made from it.</summary>
+    public void HandToGoal(string ticketId, string managerId, string managerName, string goalId)
+    {
+        if (Get(ticketId) is not { } t || t.Assignee.Length > 0) return;
+        t.Assignee = managerId;
+        t.GoalId = goalId;
+        t.Status = TaskState.Waiting;
+        Save(t);
+        _events.Emit("task.claimed", managerId, ticketId);
+        _ = _rooms.PostAsync(t.Room, "foreman", "Foreman", null,
+            $"{managerName} took the ticket and opened goal {goalId} to plan it.", CancellationToken.None);
+    }
+
+    /// <summary>The goal made from a ticket ended: the ticket ends the same way.</summary>
+    public void CloseTicketOfGoal(GoalModel goal)
+    {
+        if (goal.TicketId is not { } id || Get(id) is not { } t) return;
+        if (t.Status is TaskState.Done or TaskState.Failed or TaskState.Cancelled) return;
+        t.Status = goal.Status switch
+        {
+            GoalState.Done => TaskState.Done,
+            GoalState.Failed => TaskState.Failed,
+            GoalState.Cancelled => TaskState.Cancelled,
+            _ => t.Status,
+        };
+        if (t.Status == TaskState.Waiting) return;
+        Save(t);
+        _ = _rooms.PostAsync(t.Room, "foreman", "Foreman", null,
+            $"Goal {goal.Id} ended {goal.Status.ToString().ToLowerInvariant()}; ticket closed.", CancellationToken.None);
     }
 
     private TaskModel NewTask(string title, string brief, string assignee, string? role, bool requiresApproval, string? goalId)

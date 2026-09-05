@@ -33,6 +33,9 @@ public sealed class ForemanOptions
     /// <summary>After a manager run fails at the API, PumpGoals leaves the goal alone this long; explicit requests (top-up, approve, wake) still retry.</summary>
     public int ManagerErrorBackoffMinutes { get; set; } = 10;
 
+    /// <summary>Budget of a goal made from a ticket that named none.</summary>
+    public decimal DefaultTicketBudgetUsd { get; set; } = 5m;
+
     /// <summary>
     /// $ per million tokens by model, used when a CLI does not report a cost. "default" is
     /// the fallback for unknown models. Tune to current list prices; wrong prices mis-budget

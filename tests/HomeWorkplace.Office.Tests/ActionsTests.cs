@@ -248,3 +248,38 @@ public class TicketActionsTests
         Assert.Contains(_toasts.Live, t => t.Kind == ToastKind.Success);
     }
 }
+
+public class ManagerTicketActionsTests
+{
+    [Fact]
+    public async Task A_manager_ticket_takes_a_budget_and_a_plain_one_does_not()
+    {
+        var foreman = new FakeForemanApi();
+        foreman.Employees["mia"] = FakeForemanApi.Employee("mia", role: "Engineering manager");
+        var actions = new Actions(foreman, new FakeContextApi(), new Journal(), new Toasts(),
+            () => new OverlaySnapshot(foreman.Employees, foreman.Tasks, foreman.Goals, Array.Empty<EventDto>(), Array.Empty<CliStatus>()));
+
+        var plain = Assert.IsType<OpenText>(await actions.RunAsync(new PostTicket("Software engineer")));
+        Assert.Equal(new[] { "Title", "Brief" }, plain.Entry.Fields.Select(f => f.Name));
+
+        var mgr = Assert.IsType<OpenText>(await actions.RunAsync(new PostTicket("Engineering manager")));
+        Assert.Equal(new[] { "Title", "Brief", "Budget USD" }, mgr.Entry.Fields.Select(f => f.Name));
+        foreach (var c in "Big thing") mgr.Entry.Handle(UiKey.Char(c));
+        mgr.Entry.Handle(UiKey.Accept);
+        foreach (var c in "Split it up") mgr.Entry.Handle(UiKey.Char(c));
+        mgr.Entry.Handle(UiKey.Accept);
+        foreach (var c in "8") mgr.Entry.Handle(UiKey.Char(c));
+        var submitted = Assert.IsType<TextSubmitted>(mgr.Entry.Handle(UiKey.Accept).Payload);
+        Assert.IsType<Done>(await actions.SubmitAsync(submitted));
+        Assert.Contains("createTicket:Big thing:Engineering manager:8", foreman.Calls);
+
+        var blank = Assert.IsType<OpenText>(await actions.RunAsync(new PostTicket("Engineering manager")));
+        foreach (var c in "Other") blank.Entry.Handle(UiKey.Char(c));
+        blank.Entry.Handle(UiKey.Accept);
+        foreach (var c in "b") blank.Entry.Handle(UiKey.Char(c));
+        blank.Entry.Handle(UiKey.Accept);
+        var submitted2 = Assert.IsType<TextSubmitted>(blank.Entry.Handle(UiKey.Accept).Payload);   // empty budget = default
+        Assert.IsType<Done>(await actions.SubmitAsync(submitted2));
+        Assert.Contains("createTicket:Other:Engineering manager", foreman.Calls);
+    }
+}

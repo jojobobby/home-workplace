@@ -117,6 +117,9 @@ public sealed class EmployeeCatalog
         => SetState(GetState(id) with { Status = EmployeeStatus.Awake, AwakeOverrideUntil = null });
 
     /// <summary>True when <paramref name="now"/> falls in the shift, handling shifts that wrap past midnight.</summary>
+    /// <summary>Managers plan rather than do: a ticket they take becomes a goal.</summary>
+    public static bool IsManager(EmployeeDefinition def) => def.Role.Contains("manager", StringComparison.OrdinalIgnoreCase);
+
     public static bool WithinShift(TimeOnly now, TimeOnly wake, TimeOnly sleep)
         => wake <= sleep ? now >= wake && now < sleep
                          : now >= wake || now < sleep;

@@ -25,6 +25,8 @@ public sealed class GoalModel
     /// <summary>Why the last manager run could not happen (an API refusal, a crash); cleared by the next run that does.</summary>
     public string? LastError { get; set; }
     public DateTimeOffset? LastErrorAt { get; set; }
+    /// <summary>The board ticket this goal was made from, closed when the goal ends.</summary>
+    public string? TicketId { get; set; }
     public SessionRef? Session { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
@@ -41,7 +43,8 @@ public sealed record ManagerAction(
     string? Brief = null,
     string? To = null,
     string? Text = null,
-    string? Reason = null);
+    string? Reason = null,
+    string? Role = null);
 
 public sealed record ManagerDecision(string Summary, IReadOnlyList<ManagerAction> Actions);
 

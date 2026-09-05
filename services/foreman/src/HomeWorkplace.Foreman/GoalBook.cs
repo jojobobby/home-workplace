@@ -49,6 +49,32 @@ public sealed class GoalBook
         return goal;
     }
 
+    /// <summary>A manager took a ticket: the goal it plans, with the ticket's budget (or the default).</summary>
+    public GoalModel CreateFromTicket(TaskModel ticket, string managerId)
+    {
+        var now = _clock.GetUtcNow();
+        var id = Guid.NewGuid().ToString("N")[..8];
+        var goal = new GoalModel
+        {
+            Id = id,
+            Title = ticket.Title,
+            Brief = ticket.Brief,
+            Manager = managerId,
+            BudgetUsd = ticket.BudgetUsd ?? _options.DefaultTicketBudgetUsd,
+            SpentUsd = 0m,
+            Status = GoalState.Planning,
+            Room = $"goal-{id}",
+            TicketId = ticket.Id,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        _goals[id] = goal;
+        Save(goal);
+        _ = _rooms.PostAsync(goal.Room, "foreman", "Foreman", null,
+            $"Goal created from ticket {ticket.Id}: {goal.Title} — manager {managerId}, budget ${goal.BudgetUsd:0.00}", CancellationToken.None);
+        return goal;
+    }
+
     public GoalModel? Get(string id) => _goals.TryGetValue(id, out var g) ? g : null;
 
     public IReadOnlyList<GoalModel> List() => _goals.Values.OrderBy(g => g.CreatedAt).ToArray();
@@ -141,6 +167,7 @@ public sealed class GoalBook
         g.Status = GoalState.Cancelled;
         Save(g);
         foreach (var tid in g.TaskIds) tasks.Cancel(tid, supervisor);   // no-op for tasks already finished
+        tasks.CloseTicketOfGoal(g);
         _ = _rooms.PostAsync(g.Room, "foreman", "Foreman", null, "Goal cancelled.", CancellationToken.None);
         return true;
     }

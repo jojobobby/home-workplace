@@ -18,9 +18,10 @@ public sealed class ManagerComposer
         b.AppendLine().AppendLine("## How managing works here");
         b.Append("- You own the goal '").Append(goal.Title).Append("'. Its room is '").Append(goal.Room).Append("' on ").Append(_options.ContextApiBaseUrl).AppendLine(".");
         b.AppendLine("- You do not do the work yourself. You decompose the goal into tasks, assign each to the right teammate, verify what comes back, and re-plan when something fails.");
+        b.AppendLine("- Two ways to hand out work: 'create_task' gives a task to a named teammate; 'post_ticket' pins it on the board for a role, and the first idle teammate of that role takes it. Use the board when it does not matter who does it.");
         b.AppendLine("- Every run — yours and your team's — spends the goal's dollar budget. Spend it deliberately; prefer fewer, well-briefed tasks.");
         b.AppendLine("- You are re-run each time a task you created finishes, so decide only what is needed now, then 'wait'.");
-        b.AppendLine("- Your FINAL message must be the JSON decision object: {\"summary\": string, \"actions\": [{\"kind\": create_task|message|wait|complete|fail, ...}]}. Nothing after it.");
+        b.AppendLine("- Your FINAL message must be the JSON decision object: {\"summary\": string, \"actions\": [{\"kind\": create_task|post_ticket|message|wait|complete|fail, ...}]}. Nothing after it.");
         return b.ToString();
     }
 
@@ -39,6 +40,14 @@ public sealed class ManagerComposer
             b.Append("- ").Append(e.Id).Append(" — ").Append(e.Name).Append(", ").Append(e.Role)
              .Append(" (").Append(e.Vendor.ToString().ToLowerInvariant()).Append(", ").Append(e.Status.ToString().ToLowerInvariant()).AppendLine(")");
         if (!roster.Any(e => e.Id != goal.Manager)) b.AppendLine("- (no other employees)");
+        var roles = roster.Where(e => e.Id != goal.Manager).Select(e => e.Role).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(r => r).ToList();
+        if (roles.Count > 0) b.Append("Roles you can pin tickets for: ").AppendLine(string.Join(", ", roles));
+        b.AppendLine();
+
+        b.AppendLine("## Actions");
+        b.AppendLine("- create_task {assignee, title, brief}: a task for a named teammate.");
+        b.AppendLine("- post_ticket {role, title, brief}: a ticket on the board; the first idle teammate of that role takes it (omit role for anyone).");
+        b.AppendLine("- message {to?, text}, wait, complete, fail {reason}.");
         b.AppendLine();
 
         b.AppendLine("## Tasks so far");

@@ -94,6 +94,14 @@ public sealed partial class RunSupervisor
                     .OrderBy(d => d.Id, StringComparer.Ordinal)
                     .FirstOrDefault();
                 if (taker is null) continue;
+                if (EmployeeCatalog.IsManager(taker))
+                {
+                    // A manager plans rather than does: the ticket becomes a goal they run.
+                    var goal = _goals.CreateFromTicket(ticket, taker.Id);
+                    _tasks.HandToGoal(ticket.Id, taker.Id, taker.Name, goal.Id);
+                    _ = RunManagerAsync(goal.Id);
+                    continue;
+                }
                 _tasks.Claim(ticket.Id, taker.Id, taker.Name);
                 _busy.Add(taker.Id);
                 _employees.MarkWorking(taker.Id, ticket.Id);

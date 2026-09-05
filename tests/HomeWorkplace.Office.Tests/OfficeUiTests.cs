@@ -218,3 +218,26 @@ public class TicketInteractionTests
         Assert.Contains(ui.Toasts.Live, t => t.Text.Contains("Ada") && t.Text.Contains("ticket"));
     }
 }
+
+public class ManagerDecisionToastTests
+{
+    [Fact]
+    public void A_manager_decision_toasts_how_many_tasks_were_planned()
+    {
+        var foreman = new FakeForemanApi();
+        foreman.Employees["mia"] = FakeForemanApi.Employee("mia", role: "Engineering manager");
+        var store = new AppStore();
+        store.SetAll(new[] { foreman.Employees["mia"] }, Array.Empty<TaskDto>(), Array.Empty<GoalDto>());
+        var ui = new OfficeUi(store, foreman, new FakeContextApi(), () => Array.Empty<CliStatus>(), _ => { });
+        ui.OnStoreChanged();
+
+        store.AddEvent(new EventDto
+        {
+            Seq = 9, Type = "goal.decision", EmployeeId = "mia", Timestamp = DateTimeOffset.UtcNow,
+            Data = System.Text.Json.JsonSerializer.SerializeToElement(new { summary = "split", actions = new[] { "create_task", "post_ticket", "wait" } }),
+        });
+        ui.OnStoreChanged();
+
+        Assert.Contains(ui.Toasts.Live, t => t.Text == "Mia planned 2 tasks");
+    }
+}

@@ -106,6 +106,8 @@ app.MapPost("/tickets", async (CreateTicketRequest req, TaskBook book, RunSuperv
 {
     if (string.IsNullOrWhiteSpace(req.Title) || string.IsNullOrWhiteSpace(req.Brief))
         return Results.ValidationProblem(new Dictionary<string, string[]> { ["body"] = new[] { "title and brief are required." } });
+    if (req.BudgetUsd is { } b && b <= 0m)
+        return Results.ValidationProblem(new Dictionary<string, string[]> { ["budgetUsd"] = new[] { "budgetUsd must be greater than 0 when given." } });
     var ticket = await book.CreateTicketAsync(req, ct);
     sup.Pump();   // an idle employee of the right role takes it at once
     return Results.Created($"/tasks/{ticket.Id}", ticket);

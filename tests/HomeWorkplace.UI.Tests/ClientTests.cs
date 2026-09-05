@@ -266,3 +266,16 @@ public class TicketClientTests
         Assert.Null(Assert.Single(tickets).Role);
     }
 }
+
+public class ManagerTicketClientTests
+{
+    [Fact]
+    public async Task A_ticket_can_carry_a_budget()
+    {
+        var stub = new StubHandler { Body = """{"id":"t9","title":"Big","brief":"b","assignee":"","role":"Engineering manager","budgetUsd":8,"status":0,"room":"task-t9"}""", Status = HttpStatusCode.Created };
+        var client = new ForemanClient(new HttpClient(stub) { BaseAddress = new Uri("http://foreman.test") });
+        var ticket = await client.CreateTicketAsync(new CreateTicketRequest("Big", "b", "Engineering manager", BudgetUsd: 8m));
+        Assert.Contains("\"budgetUsd\":8", stub.LastBody);
+        Assert.Equal(8m, ticket.BudgetUsd);
+    }
+}

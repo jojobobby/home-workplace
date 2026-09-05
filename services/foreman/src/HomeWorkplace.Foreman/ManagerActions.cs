@@ -9,7 +9,7 @@ namespace HomeWorkplace.Foreman;
 public static class ManagerActions
 {
     public const string Schema =
-        """{"type":"object","properties":{"summary":{"type":"string"},"actions":{"type":"array","items":{"type":"object","properties":{"kind":{"type":"string","enum":["create_task","message","wait","complete","fail"]},"assignee":{"type":"string"},"title":{"type":"string"},"brief":{"type":"string"},"to":{"type":"string"},"text":{"type":"string"},"reason":{"type":"string"}},"required":["kind"]}}},"required":["summary","actions"]}""";
+        """{"type":"object","properties":{"summary":{"type":"string"},"actions":{"type":"array","items":{"type":"object","properties":{"kind":{"type":"string","enum":["create_task","post_ticket","message","wait","complete","fail"]},"assignee":{"type":"string"},"role":{"type":"string"},"title":{"type":"string"},"brief":{"type":"string"},"to":{"type":"string"},"text":{"type":"string"},"reason":{"type":"string"}},"required":["kind"]}}},"required":["summary","actions"]}""";
 
     public static ManagerDecision Parse(string json)
     {
@@ -25,7 +25,7 @@ public static class ManagerActions
                 {
                     if (!a.TryGetProperty("kind", out var k) || k.GetString() is not { Length: > 0 } kind) continue;
                     actions.Add(new ManagerAction(kind,
-                        Str(a, "assignee"), Str(a, "title"), Str(a, "brief"), Str(a, "to"), Str(a, "text"), Str(a, "reason")));
+                        Str(a, "assignee"), Str(a, "title"), Str(a, "brief"), Str(a, "to"), Str(a, "text"), Str(a, "reason"), Str(a, "role")));
                 }
             }
             return new ManagerDecision(summary, actions);
@@ -61,6 +61,14 @@ public static class ManagerActions
                     goal.TaskIds.Add(t.Id);
                     break;
 
+                case "post_ticket":
+                    var pinned = await tasks.CreateTicketAsync(
+                        new CreateTicketRequest(a.Title ?? "Untitled", a.Brief ?? a.Title ?? "", a.Role), ct, goalId: goal.Id);
+                    goal.TaskIds.Add(pinned.Id);
+                    await rooms.PostAsync(goal.Room, goal.Manager, managerName, null,
+                        $"Pinned a ticket for {a.Role ?? "anyone"}: {pinned.Title}", ct);
+                    break;
+
                 case "message":
                     var target = a.To is { } to && employees.GetState(to).CurrentTaskId is { } tid && tasks.Get(tid) is { } tt
                         ? tt.Room : goal.Room;
@@ -87,6 +95,7 @@ public static class ManagerActions
 
         if (!terminal && goal.Status == GoalState.Planning) goal.Status = GoalState.Running;
         goals.Save(goal);
+        if (terminal) tasks.CloseTicketOfGoal(goal);
         supervisor.Pump();
     }
 

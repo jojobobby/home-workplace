@@ -50,7 +50,7 @@ public sealed class FakeForemanApi : IForemanApi
     public Task<TaskDto> ReassignAsync(string id, string assignee, CancellationToken ct = default) => System.Threading.Tasks.Task.FromResult(Rec("reassign:" + id + ":" + assignee, Tasks[id]));
     public Task<TaskDto> RetryAsync(string id, CancellationToken ct = default) => System.Threading.Tasks.Task.FromResult(Rec("retry:" + id, Tasks[id]));
     public Task<TaskDto> CancelTaskAsync(string id, CancellationToken ct = default) => System.Threading.Tasks.Task.FromResult(Rec("cancelTask:" + id, Tasks[id]));
-    public Task<TaskDto> CreateTicketAsync(CreateTicketRequest r, CancellationToken ct = default) { var t = Task("ticket", assignee: "") with { Title = r.Title, Role = r.Role }; Tasks[t.Id] = t; return System.Threading.Tasks.Task.FromResult(Rec($"createTicket:{r.Title}:{r.Role}", t)); }
+    public Task<TaskDto> CreateTicketAsync(CreateTicketRequest r, CancellationToken ct = default) { var t = Task("ticket", assignee: "") with { Title = r.Title, Role = r.Role }; Tasks[t.Id] = t; return System.Threading.Tasks.Task.FromResult(Rec($"createTicket:{r.Title}:{r.Role}{(r.BudgetUsd is { } b ? ":" + b : "")}", t)); }
     public Task<IReadOnlyList<TaskDto>> GetTicketsAsync(CancellationToken ct = default) => System.Threading.Tasks.Task.FromResult(Rec("tickets", (IReadOnlyList<TaskDto>)Tasks.Values.Where(t => t.Assignee.Length == 0 && t.Status == TaskState.Queued).ToList()));
 
     public Task<GoalDto> CreateGoalAsync(CreateGoalRequest request, CancellationToken ct = default) { var g = Goal("newgoal"); Goals[g.Id] = g; return System.Threading.Tasks.Task.FromResult(Rec("createGoal:" + request.Title, g)); }
