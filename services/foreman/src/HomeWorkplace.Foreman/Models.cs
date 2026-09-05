@@ -102,7 +102,10 @@ public sealed class TaskModel
     public required string Id { get; set; }
     public required string Title { get; set; }
     public required string Brief { get; set; }
+    /// <summary>Empty while the task is a ticket on the board waiting for someone to claim it.</summary>
     public required string Assignee { get; set; }
+    /// <summary>The role a ticket is meant for (matches an employee's role, case-insensitive); null = anyone.</summary>
+    public string? Role { get; set; }
     public TaskState Status { get; set; } = TaskState.Queued;
     public bool RequiresApproval { get; set; }
     public bool AwaitingApproval { get; set; }
@@ -121,6 +124,7 @@ public sealed class TaskModel
 }
 
 public sealed record CreateTaskRequest(string? Title, string? Brief, string? Assignee, bool RequiresApproval = false);
+public sealed record CreateTicketRequest(string? Title, string? Brief, string? Role, bool RequiresApproval = false);
 public sealed record AnswerRequest(string? Text);
 public sealed record ReassignRequest(string? Assignee);
 

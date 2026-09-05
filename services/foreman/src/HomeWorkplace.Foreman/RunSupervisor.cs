@@ -75,6 +75,7 @@ public sealed partial class RunSupervisor
         {
             foreach (var task in _tasks.Queued())
             {
+                if (task.Assignee.Length == 0) continue;   // a ticket: claimed below
                 if (_busy.Contains(task.Assignee)) continue;
                 if (_employees.GetState(task.Assignee).Status != EmployeeStatus.Awake) continue;
                 // A goal task must not spend past its goal's budget: block the goal, leave the task queued.
@@ -82,6 +83,21 @@ public sealed partial class RunSupervisor
                 _busy.Add(task.Assignee);
                 _employees.MarkWorking(task.Assignee, task.Id);
                 _ = RunAsync(task.Id, task.Assignee);
+            }
+
+            // Tickets: the oldest goes to the first idle employee whose role fits (any role when the ticket names none).
+            foreach (var ticket in _tasks.Tickets())
+            {
+                var taker = _employees.Definitions
+                    .Where(d => !_busy.Contains(d.Id) && _employees.GetState(d.Id).Status == EmployeeStatus.Awake)
+                    .Where(d => ticket.Role is null || string.Equals(d.Role, ticket.Role, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(d => d.Id, StringComparer.Ordinal)
+                    .FirstOrDefault();
+                if (taker is null) continue;
+                _tasks.Claim(ticket.Id, taker.Id, taker.Name);
+                _busy.Add(taker.Id);
+                _employees.MarkWorking(taker.Id, ticket.Id);
+                _ = RunAsync(ticket.Id, taker.Id);
             }
         }
     }

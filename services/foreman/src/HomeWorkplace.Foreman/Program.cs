@@ -101,6 +101,16 @@ app.MapPost("/tasks", async (CreateTaskRequest req, TaskBook book, EmployeeCatal
     return Results.Created($"/tasks/{task.Id}", task);
 });
 app.MapGet("/tasks", (TaskState? status, string? assignee, TaskBook book) => Results.Ok(book.List(status, assignee)));
+
+app.MapPost("/tickets", async (CreateTicketRequest req, TaskBook book, RunSupervisor sup, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Title) || string.IsNullOrWhiteSpace(req.Brief))
+        return Results.ValidationProblem(new Dictionary<string, string[]> { ["body"] = new[] { "title and brief are required." } });
+    var ticket = await book.CreateTicketAsync(req, ct);
+    sup.Pump();   // an idle employee of the right role takes it at once
+    return Results.Created($"/tasks/{ticket.Id}", ticket);
+});
+app.MapGet("/tickets", (TaskBook book) => Results.Ok(book.Tickets()));
 app.MapGet("/tasks/{id}", (string id, TaskBook book) => book.Get(id) is { } t ? Results.Ok(t) : Results.NotFound());
 app.MapPost("/tasks/{id}/approve", (string id, TaskBook book, RunSupervisor sup) =>
 {

@@ -29,16 +29,35 @@ public sealed class TaskBook
 
     public async Task<TaskModel> CreateAsync(CreateTaskRequest req, CancellationToken ct, string? goalId = null)
     {
+        var task = NewTask(req.Title!, req.Brief!, req.Assignee!.Trim(), role: null, req.RequiresApproval, goalId);
+        await _rooms.PostAsync(task.Room, "foreman", "Foreman", null,
+            $"Task created: {task.Title} — assigned to {task.Assignee}", ct);
+        return task;
+    }
+
+    /// <summary>A ticket: a task nobody owns yet, pinned for an employee of the right role to claim.</summary>
+    public async Task<TaskModel> CreateTicketAsync(CreateTicketRequest req, CancellationToken ct)
+    {
+        var role = string.IsNullOrWhiteSpace(req.Role) ? null : req.Role.Trim();
+        var task = NewTask(req.Title!, req.Brief!, assignee: "", role, req.RequiresApproval, goalId: null);
+        await _rooms.PostAsync(task.Room, "foreman", "Foreman", null,
+            $"Ticket posted: {task.Title} ({role ?? "any role"}). Waiting for someone to pick it up.", ct);
+        return task;
+    }
+
+    private TaskModel NewTask(string title, string brief, string assignee, string? role, bool requiresApproval, string? goalId)
+    {
         var now = _clock.GetUtcNow();
         var id = Guid.NewGuid().ToString("N")[..8];
         var task = new TaskModel
         {
             Id = id,
-            Title = req.Title!.Trim(),
-            Brief = req.Brief!.Trim(),
-            Assignee = req.Assignee!.Trim(),
+            Title = title.Trim(),
+            Brief = brief.Trim(),
+            Assignee = assignee,
+            Role = role,
             Status = TaskState.Queued,
-            RequiresApproval = req.RequiresApproval,
+            RequiresApproval = requiresApproval,
             GoalId = goalId,
             Room = $"task-{id}",
             Workspace = Path.Combine(_options.DataPath, "workspaces", id),
@@ -48,9 +67,21 @@ public sealed class TaskBook
         Directory.CreateDirectory(task.Workspace);
         _tasks[id] = task;
         Save(task);
-        await _rooms.PostAsync(task.Room, "foreman", "Foreman", null,
-            $"Task created: {task.Title} — assigned to {task.Assignee}", ct);
         return task;
+    }
+
+    /// <summary>Tickets still on the board: queued and unowned, oldest first.</summary>
+    public IReadOnlyList<TaskModel> Tickets()
+        => _tasks.Values.Where(t => t.Status == TaskState.Queued && t.Assignee.Length == 0).OrderBy(t => t.CreatedAt).ToArray();
+
+    /// <summary>An employee takes a ticket off the board.</summary>
+    public void Claim(string taskId, string employeeId, string employeeName)
+    {
+        if (Get(taskId) is not { } t || t.Assignee.Length > 0) return;
+        t.Assignee = employeeId;
+        Save(t);
+        _events.Emit("task.claimed", employeeId, taskId);
+        _ = _rooms.PostAsync(t.Room, "foreman", "Foreman", null, $"{employeeName} took the ticket.", CancellationToken.None);
     }
 
     public TaskModel? Get(string id) => _tasks.TryGetValue(id, out var t) ? t : null;
