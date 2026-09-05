@@ -208,3 +208,43 @@ public class HiringActionsTests
         Assert.DoesNotContain("ada", _foreman.Employees.Keys);
     }
 }
+
+public class TicketActionsTests
+{
+    private readonly FakeForemanApi _foreman = new();
+    private readonly Toasts _toasts = new();
+    private readonly Actions _actions;
+
+    public TicketActionsTests()
+    {
+        _foreman.Employees["ada"] = FakeForemanApi.Employee("ada", role: "Software engineer");
+        _foreman.Tasks["t1"] = TicketDialogueTests.Ticket("t1", "Fix the parser", "Software engineer", 3);
+        _actions = new Actions(_foreman, new FakeContextApi(), new Journal(), _toasts,
+            () => new OverlaySnapshot(_foreman.Employees, _foreman.Tasks, _foreman.Goals, Array.Empty<EventDto>(), Array.Empty<CliStatus>()));
+    }
+
+    [Fact]
+    public async Task Opening_the_board_fetches_tickets_and_posting_goes_role_then_text_then_foreman()
+    {
+        var board = Assert.IsType<OpenDialogue>(await _actions.RunAsync(new OpenTicketBoard()));
+        Assert.Equal("Ticket board", board.Dialogue.SpeakerName);
+        Assert.Contains("tickets", _foreman.Calls);
+        Assert.Contains(board.Dialogue.Lines, l => l.Contains("Fix the parser"));
+
+        var roles = Assert.IsType<OpenDialogue>(await _actions.RunAsync(new PickTicketRole()));
+        Assert.Contains(roles.Dialogue.Options, o => o.Label == "Software engineer");
+
+        var text = Assert.IsType<OpenText>(await _actions.RunAsync(new PostTicket("Software engineer")));
+        Assert.Equal(new[] { "Title", "Brief" }, text.Entry.Fields.Select(f => f.Name));
+        Assert.Contains("Software engineer", text.Entry.Title);
+        foreach (var c in "Write tests") text.Entry.Handle(UiKey.Char(c));
+        text.Entry.Handle(UiKey.Accept);
+        foreach (var c in "Cover the parser") text.Entry.Handle(UiKey.Char(c));
+        var submitted = Assert.IsType<TextSubmitted>(text.Entry.Handle(UiKey.Accept).Payload);
+
+        var done = Assert.IsType<Done>(await _actions.SubmitAsync(submitted));
+        Assert.Contains("Write tests", done.Message);
+        Assert.Contains("createTicket:Write tests:Software engineer", _foreman.Calls);
+        Assert.Contains(_toasts.Live, t => t.Kind == ToastKind.Success);
+    }
+}

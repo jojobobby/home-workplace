@@ -43,6 +43,15 @@ subscription. A brain whose CLI is not signed in (see the Setup tab) shows "(sig
 cannot be picked. The hire walks in at once. "Let go" in an employee's dialogue archives
 their folder under `employees/.former/`.
 
+## Tickets
+
+Hire as many engineers as you like, then stop assigning by hand: the ticket board on the
+top wall (right of the whiteboard; walk up and press E, or click it) lists what is pinned.
+"Post a ticket" asks who should take it (any role, or one of the roles in the company), then
+a title and brief. The oldest ticket goes to the first idle, awake employee of that role: they
+walk to the board, take it, and go type. "Take down" cancels a ticket. The Tasks tab shows
+tickets as `(board)` until someone claims them.
+
 ## Managing the company
 
 Walk up to an employee (or click them) and a dialogue box opens at the bottom: they say what

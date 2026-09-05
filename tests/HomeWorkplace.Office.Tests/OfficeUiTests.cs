@@ -195,3 +195,26 @@ public class HiringInteractionTests
         Assert.Equal("Hiring stand", d.SpeakerName);
     }
 }
+
+public class TicketInteractionTests
+{
+    [Fact]
+    public async Task The_board_opens_on_interact_and_a_claim_toasts()
+    {
+        var foreman = new FakeForemanApi();
+        foreman.Employees["ada"] = FakeForemanApi.Employee("ada", role: "Software engineer");
+        var store = new AppStore();
+        store.SetAll(new[] { foreman.Employees["ada"] }, Array.Empty<TaskDto>(), Array.Empty<GoalDto>());
+        var sounds = new List<string>();
+        var ui = new OfficeUi(store, foreman, new FakeContextApi(), () => Array.Empty<CliStatus>(), sounds.Add);
+        ui.OnStoreChanged();
+
+        ui.Interact(new Interactable(InteractKind.TicketBoard, null));
+        for (var i = 0; i < 20 && ui.Pending is not null; i++) { await Task.Yield(); ui.Update(0.016f); }
+        Assert.Equal("Ticket board", ((Dialogue)ui.State.Top!).SpeakerName);
+
+        store.AddEvent(new EventDto { Seq = 7, Type = "task.claimed", EmployeeId = "ada", TaskId = "t1", Timestamp = DateTimeOffset.UtcNow });
+        ui.OnStoreChanged();
+        Assert.Contains(ui.Toasts.Live, t => t.Text.Contains("Ada") && t.Text.Contains("ticket"));
+    }
+}

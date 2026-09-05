@@ -53,6 +53,8 @@ public class OverlayTests
         o.Handle(UiKey.Tab);   // Tasks, newest first
         Assert.Equal(new[] { "t2", "t1", "t3" }, o.Rows.Select(r => r.Id));
         Assert.Contains("NeedsHuman", o.Rows[0].Text);
+        var board = new Overlay(OverlayTab.Tasks, Snapshot() with { Tasks = new Dictionary<string, TaskDto> { ["t9"] = new TaskDto { Id = "t9", Title = "Pinned", Assignee = "", Status = TaskState.Queued } } });
+        Assert.Contains("(board)", board.Rows[0].Text);
 
         o.Handle(UiKey.Tab);   // Goals
         Assert.Single(o.Rows);

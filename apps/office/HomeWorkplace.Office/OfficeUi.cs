@@ -68,6 +68,7 @@ public sealed class OfficeUi
             case { Kind: InteractKind.Employee, EmployeeId: { } id }: OpenEmployee(id); break;
             case { Kind: InteractKind.Whiteboard }: OpenWhiteboard(); break;
             case { Kind: InteractKind.HiringStand }: Pending = _actions.RunAsync(new OpenHiring()); break;
+            case { Kind: InteractKind.TicketBoard }: Pending = _actions.RunAsync(new OpenTicketBoard()); break;
         }
     }
 
@@ -184,6 +185,9 @@ public sealed class OfficeUi
                     break;
                 case "goal.blocked":
                     Toasts.Add("A goal is over budget: top it up", ToastKind.Attention, e.EmployeeId);
+                    break;
+                case "task.claimed":
+                    Toasts.Add($"{who} took a ticket", ToastKind.Info, e.EmployeeId);
                     break;
             }
         }

@@ -62,8 +62,9 @@ public sealed class UiRenderer
             _hud.Sprite(anim.Frames[0], 20, y0 + 12, zoom: 2);
         else
         {
-            var portrait = _manifest.Get(d.Portrait).Frames[0];
-            _hud.Sprite(portrait, 16 + (40 - Math.Min(40, portrait.W)) / 2, y0 + 8 + (40 - portrait.H) / 2, zoom: 1);
+            var full = _manifest.Get(d.Portrait).Frames[0];
+            var portrait = new SpriteRect(full.X, full.Y, Math.Min(36, full.W), Math.Min(36, full.H));   // clipped to the portrait box
+            _hud.Sprite(portrait, 16 + (40 - portrait.W) / 2, y0 + 8 + (40 - portrait.H) / 2, zoom: 1);
         }
 
         _hud.Text(d.SpeakerName, 64, y0 + 8, Gold);

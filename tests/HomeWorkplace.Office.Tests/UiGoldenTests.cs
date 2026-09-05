@@ -105,3 +105,25 @@ public class HiringGoldenTests
         Golden.Check(_host, "ui-hiring-brains", _host.RenderUi(sim, ui, new Toasts(), you), tolerance: 0.005);
     }
 }
+
+[Collection("gpu")]
+public class TicketGoldenTests
+{
+    private readonly GoldenHost _host;
+    public TicketGoldenTests(GoldenHost host) => _host = host;
+
+    [Fact]
+    public void The_ticket_board_dialogue_matches_its_golden()
+    {
+        var sim = new Simulation(WorldLayout.Generate(Array.Empty<string>()), seed: 7);
+        sim.Apply(new TicketsChanged(2));
+        var you = new Player(sim.World);
+        you.Teleport(Agent.Centre(sim.World.TicketSpot));
+        var now = DateTimeOffset.Parse("2026-09-04T12:00:00Z");
+        var d = DialogueScript.Tickets(new[] { TicketDialogueTests.Ticket("t1", "Fix the parser", "Software engineer", 3), TicketDialogueTests.Ticket("t2", "Write the docs", null, 125) }, now);
+        d.CompleteReveal();
+        var ui = new UiState();
+        ui.Push(d);
+        Golden.Check(_host, "ui-tickets", _host.RenderUi(sim, ui, new Toasts(), you), tolerance: 0.005);
+    }
+}

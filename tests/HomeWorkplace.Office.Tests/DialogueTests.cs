@@ -203,3 +203,42 @@ public class HiringDialogueTests
         Assert.True(d.Options.ToList().FindIndex(o => o.Label == "Let go") < d.Options.ToList().FindIndex(o => o.Label == "Reset"));
     }
 }
+
+public class TicketDialogueTests
+{
+    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-09-04T12:00:00Z");
+    internal static TaskDto Ticket(string id, string title, string? role, int minutesAgo)
+        => new() { Id = id, Title = title, Assignee = "", Role = role, Status = TaskState.Queued, CreatedAt = Now.AddMinutes(-minutesAgo) };
+
+    [Fact]
+    public void The_board_lists_tickets_with_role_and_age_and_offers_post_and_take_down()
+    {
+        var d = DialogueScript.Tickets(new[] { Ticket("t1", "Fix the parser", "Software engineer", 3), Ticket("t2", "Write docs", null, 125) }, Now);
+        Assert.Equal("Ticket board", d.SpeakerName);
+        Assert.Equal("tickets", d.Portrait);
+        Assert.Contains(d.Lines, l => l.Contains("Fix the parser") && l.Contains("Software engineer") && l.Contains("3 min"));
+        Assert.Contains(d.Lines, l => l.Contains("Write docs") && l.Contains("any role") && l.Contains("2 h"));
+        Assert.Equal(new[] { "Post a ticket", "Take down: Fix the parser", "Take down: Write docs", "Leave" }, d.Options.Select(o => o.Label));
+        Assert.IsType<PickTicketRole>(d.Options[0].Action);
+        Assert.Equal(new CancelTask("t1"), d.Options[1].Action);
+
+        var empty = DialogueScript.Tickets(Array.Empty<TaskDto>(), Now);
+        Assert.Contains(empty.Lines, l => l.Contains("empty", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(new[] { "Post a ticket", "Leave" }, empty.Options.Select(o => o.Label));
+    }
+
+    [Fact]
+    public void The_role_pick_offers_any_role_plus_the_roles_in_the_company()
+    {
+        var employees = new[]
+        {
+            new EmployeeDto { Id = "ada", Name = "Ada", Role = "Software engineer" },
+            new EmployeeDto { Id = "bob", Name = "Bob", Role = "Software engineer" },
+            new EmployeeDto { Id = "rex", Name = "Rex", Role = "Code reviewer" },
+        };
+        var d = DialogueScript.TicketRoles(employees);
+        Assert.Equal(new[] { "Any role", "Code reviewer", "Software engineer", "Leave" }, d.Options.Select(o => o.Label));
+        Assert.Equal(new PostTicket(null), d.Options[0].Action);
+        Assert.Equal(new PostTicket("Software engineer"), d.Options[2].Action);
+    }
+}

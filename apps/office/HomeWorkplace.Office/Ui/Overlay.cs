@@ -130,7 +130,7 @@ public sealed class Overlay : ILayer
                     actions.Add(new("Cancel task", new CancelTask(t.Id)));
                     break;
             }
-            yield return new OverlayRow(t.Id, $"{t.Title}  {t.Status}  {t.Assignee}", actions);
+            yield return new OverlayRow(t.Id, $"{t.Title}  {t.Status}  {(t.Assignee.Length == 0 ? "(board)" : t.Assignee)}", actions);
         }
     }
 

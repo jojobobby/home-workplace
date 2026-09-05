@@ -101,6 +101,42 @@ public static class DialogueScript
 
     public static bool IsActive(GoalDto g) => g.Status is GoalState.Planning or GoalState.Running or GoalState.Blocked;
 
+    // ---- the ticket board ----
+
+    /// <summary>What is pinned: each ticket with the role it is for and how long it has waited.</summary>
+    public static Dialogue Tickets(IReadOnlyList<TaskDto> tickets, DateTimeOffset now)
+    {
+        var lines = new List<string>();
+        if (tickets.Count == 0) lines.Add("The board is empty. Post a ticket and an idle employee of that role takes it.");
+        else
+        {
+            lines.Add($"{tickets.Count} ticket{(tickets.Count == 1 ? "" : "s")} pinned. Idle employees of the right role take them.");
+            foreach (var t in tickets.Take(3))
+                lines.Add($"- {t.Title} ({t.Role ?? "any role"}, {Age(now - t.CreatedAt)})");
+        }
+
+        var options = new List<DialogueOption> { new("Post a ticket", new PickTicketRole()) };
+        foreach (var t in tickets) options.Add(new($"Take down: {t.Title}", new CancelTask(t.Id)));
+        options.Add(new("Leave", new Leave()));
+        return new Dialogue(null, "Ticket board", lines, options) { Portrait = "tickets" };
+    }
+
+    /// <summary>Who should take the ticket: anyone, or one of the roles the company has.</summary>
+    public static Dialogue TicketRoles(IEnumerable<EmployeeDto> employees)
+    {
+        var options = new List<DialogueOption> { new("Any role", new PostTicket(null)) };
+        foreach (var role in employees.Select(e => e.Role).Where(r => r.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(r => r, StringComparer.OrdinalIgnoreCase))
+            options.Add(new(role, new PostTicket(role)));
+        options.Add(new("Leave", new Leave()));
+        return new Dialogue(null, "Ticket board", new[] { "Who should take it?" }, options) { Portrait = "tickets" };
+    }
+
+    private static string Age(TimeSpan age)
+        => age < TimeSpan.FromMinutes(1) ? "just now"
+         : age < TimeSpan.FromHours(1) ? $"{(int)age.TotalMinutes} min"
+         : age < TimeSpan.FromDays(1) ? $"{(int)age.TotalHours} h"
+         : $"{(int)age.TotalDays} d";
+
     // ---- the hiring stand ----
 
     /// <summary>Step one at the stand: which role. A role whose brains all need a sign-in is shown but disabled.</summary>

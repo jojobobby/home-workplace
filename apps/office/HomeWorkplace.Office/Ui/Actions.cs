@@ -67,6 +67,14 @@ public sealed class Actions
         HireBrain a => Task.FromResult<ActionOutcome>(new OpenText(new TextEntry($"Hire a {RoleOf(a.TemplateId)} on {a.Label}",
             new[] { new Field("Name", false, 24) }, action))),
         Fire a => Confirm($"Let {NameOf(a.EmployeeId)} go? Their folder is archived under employees/.former.", action),
+        OpenTicketBoard => Guarded(async () =>
+        {
+            var tickets = await _foreman.GetTicketsAsync();
+            return new OpenDialogue(DialogueScript.Tickets(tickets, DateTimeOffset.UtcNow));
+        }),
+        PickTicketRole => Task.FromResult<ActionOutcome>(new OpenDialogue(DialogueScript.TicketRoles(_snapshot().Employees.Values))),
+        PostTicket a => Task.FromResult<ActionOutcome>(new OpenText(new TextEntry($"New ticket for {a.Role ?? "any role"}",
+            new[] { new Field("Title", false, 60), new Field("Brief", true, 600) }, action))),
         CancelTask a => Confirm($"Cancel \"{TaskTitle(a.TaskId)}\"? Its runs stop.", action),
         CancelGoal a => Confirm($"Cancel \"{GoalTitle(a.GoalId)}\" and its open tasks?", action),
         Reset a => Confirm($"Reset {NameOf(a.EmployeeId)}? Today's memory is written up and forgotten.", action),
@@ -96,6 +104,9 @@ public sealed class Actions
             case HireBrain a:
                 var hired = await _foreman.HireAsync(new HireRequest(a.TemplateId, a.Model, v[0].Trim()));
                 return Ok($"Hired {hired.Name} as {hired.Role}", ToastKind.Success);   // short enough for a toast
+            case PostTicket a:
+                var ticket = await _foreman.CreateTicketAsync(new CreateTicketRequest(v[0].Trim(), v[1].Trim(), a.Role));
+                return Ok($"Ticket pinned: {ticket.Title}", ToastKind.Success);
             default:
                 return Fail("nothing to submit");
         }
