@@ -25,6 +25,8 @@ public sealed class WorkplaceSelect : ILayer
     }
 
     public IReadOnlyList<WorkplaceInfo> Rows { get; private set; }
+    /// <summary>What "opened 3 min ago" is measured against; fixed in canned scenes so goldens stay still.</summary>
+    public Func<DateTimeOffset> Clock { get; init; } = () => DateTimeOffset.UtcNow;
     /// <summary>A row index, or <c>Rows.Count</c> for the footer.</summary>
     public int Selected { get; private set; }
     public WorkplaceButton Button { get; private set; } = WorkplaceButton.Play;

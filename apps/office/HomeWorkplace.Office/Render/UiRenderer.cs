@@ -1,6 +1,7 @@
 using HomeWorkplace.Office.Sim;
 using HomeWorkplace.Office.Ui;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace HomeWorkplace.Office.Render;
 
@@ -15,32 +16,46 @@ public sealed class UiRenderer
     public const int H = SceneRenderer.NativeHeight;
     private const int Line = UiLayout.Line;
 
-    private static readonly Color Text = new(0xf4, 0xf1, 0xe8), Dim = new(0xb9, 0xb7, 0xc9), Gold = new(0xf0, 0xd7, 0x8c);
-    private static readonly Color Red = new(0xf0, 0x8c, 0x7b), Green = new(0x7b, 0xd8, 0x8f), Ink = new(0x0d, 0x0f, 0x22);
-    private static readonly Color Highlight = new(0x7b, 0x85, 0xc9), Field = new(0x1b, 0x1f, 0x3a);
+    private static readonly Color Text = UiPalette.Text, Dim = UiPalette.Dim, Gold = UiPalette.Gold;
+    private static readonly Color Red = UiPalette.Red, Green = UiPalette.Green, Ink = UiPalette.Ink;
+    private static readonly Color Highlight = UiPalette.Highlight, Field = UiPalette.Field;
 
     private readonly Hud _hud;
     private readonly Manifest _manifest;
+    private readonly MenuRenderer _menu;
+    private readonly Texture2D _atlas;
+    private readonly SpriteRect _panel, _panelDark;
 
     public UiRenderer(Hud hud, SceneRenderer scene)
     {
         _hud = hud;
         _manifest = scene.Manifest;
-        hud.SetAtlas(scene.AtlasTexture, _manifest.Get("panel").Frames[0], _manifest.Get("panel_dark").Frames[0]);
+        _menu = new MenuRenderer(hud);
+        _atlas = scene.AtlasTexture;
+        _panel = _manifest.Get("panel").Frames[0];
+        _panelDark = _manifest.Get("panel_dark").Frames[0];
+        hud.SetAtlas(_atlas, _panel, _panelDark);
     }
 
     /// <summary>Draw everything; <paramref name="time"/> drives the caret blink.</summary>
     public void Draw(UiState ui, Toasts toasts, int scale, float time)
     {
+        _hud.SetAtlas(_atlas, _panel, _panelDark);   // two renderers share the HUD (the showroom's and the office's)
         _hud.Begin(scale);
+        _menu.DrawBackdrop(ui);
+        var topTitleMenu = ui.Layers.LastOrDefault(l => l is MenuScreen { Style: MenuStyle.Title });   // title menus share the column: only the top one shows
         foreach (var layer in ui.Layers)
         {
+            if (layer is MenuScreen { Style: MenuStyle.Title } && !ReferenceEquals(layer, topTitleMenu)) continue;
             switch (layer)
             {
                 case Dialogue d: DrawDialogue(d); break;
                 case TextEntry t: DrawTextEntry(t, time); break;
                 case Confirm c: DrawConfirm(c); break;
                 case Overlay o: DrawOverlay(o); break;
+                case MenuScreen m: _menu.Draw(m); break;
+                case WorkplaceSelect w: _menu.Draw(w); break;
+                case SettingsScreen s: _menu.Draw(s); break;
             }
         }
         DrawToasts(toasts);

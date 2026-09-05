@@ -18,9 +18,11 @@ public sealed class OfficeUi
     private readonly Func<IReadOnlyList<CliStatus>> _setup;
     private readonly Action<string> _play;
     private readonly Action<string>? _openFolder;
-    private readonly OfficePaths? _paths;
+    /// <summary>The current workplace's folders (the boss desk opens them); null between workplaces.</summary>
+    public OfficePaths? Paths { get; set; }
     private readonly Actions _actions;
     private long _lastEventSeq = -1;
+    private DateTimeOffset _sessionStart = DateTimeOffset.UtcNow;
 
     public OfficeUi(AppStore store, IForemanApi foreman, IContextApi context, Func<IReadOnlyList<CliStatus>> setup, Action<string> play,
                     Action<string>? openFolder = null, OfficePaths? paths = null)
@@ -29,7 +31,7 @@ public sealed class OfficeUi
         _setup = setup;
         _play = play;
         _openFolder = openFolder;
-        _paths = paths;
+        Paths = paths;
         _actions = new Actions(foreman, context, Journal, Toasts, Snapshot);
     }
 
@@ -74,7 +76,7 @@ public sealed class OfficeUi
             case { Kind: InteractKind.Whiteboard }: OpenWhiteboard(); break;
             case { Kind: InteractKind.HiringStand }: Pending = _actions.RunAsync(new OpenHiring()); break;
             case { Kind: InteractKind.TicketBoard }: Pending = _actions.RunAsync(new OpenTicketBoard()); break;
-            case { Kind: InteractKind.BossDesk }: State.Push(DialogueScript.BossDesk(_paths)); _play("page"); break;
+            case { Kind: InteractKind.BossDesk }: State.Push(DialogueScript.BossDesk(Paths)); _play("page"); break;
         }
     }
 
@@ -169,6 +171,15 @@ public sealed class OfficeUi
     }
 
     /// <summary>Refresh open overlays and toast the events that need you. Call whenever the store changed.</summary>
+    /// <summary>Leaving a workplace: forget its layers, toasts and event cursor so the next one starts clean.</summary>
+    public void Reset()
+    {
+        State.Clear();
+        Toasts.Clear();
+        _lastEventSeq = -1;
+        _sessionStart = DateTimeOffset.UtcNow;
+    }
+
     public void OnStoreChanged()
     {
         var snapshot = Snapshot();
@@ -178,7 +189,7 @@ public sealed class OfficeUi
         var newest = events.Count == 0 ? 0 : events.Max(e => e.Seq);
         if (_lastEventSeq < 0) { _lastEventSeq = newest; return; }   // events from before launch never toast
 
-        foreach (var e in events.Where(e => e.Seq > _lastEventSeq).OrderBy(e => e.Seq))
+        foreach (var e in events.Where(e => e.Seq > _lastEventSeq && e.Timestamp >= _sessionStart.AddSeconds(-2)).OrderBy(e => e.Seq))   // history loads late; only this session's events toast
         {
             var who = e.EmployeeId is { } id ? NameOf(id) : "Someone";
             switch (e.Type)

@@ -24,11 +24,15 @@ public static class SpriteGenerator
 
     private static readonly Rgba[] Skins = { Rgba.Hex(0xf1c27d), Rgba.Hex(0xe0ac69), Rgba.Hex(0xc68642), Rgba.Hex(0x8d5524) };
     private static readonly Rgba[] Hairs = { Rgba.Hex(0x2b1b0e), Rgba.Hex(0x6b3e1e), Rgba.Hex(0xd9a441), Rgba.Hex(0x9a9a9a), Rgba.Hex(0xb8322e), Rgba.Hex(0x1b1f3a) };
-    private static readonly Rgba[] Shirts = { Rgba.Hex(0x7bd88f), Rgba.Hex(0x8fb8f0), Rgba.Hex(0xf0d78c), Rgba.Hex(0xf08c7b), Rgba.Hex(0xc9a0ff), Rgba.Hex(0xf4f1e8), Rgba.Hex(0x5cc8c8), Rgba.Hex(0xf0a07b) };
+    public static readonly Rgba[] Shirts = { Rgba.Hex(0x7bd88f), Rgba.Hex(0x8fb8f0), Rgba.Hex(0xf0d78c), Rgba.Hex(0xf08c7b), Rgba.Hex(0xc9a0ff), Rgba.Hex(0xf4f1e8), Rgba.Hex(0x5cc8c8), Rgba.Hex(0xf0a07b) };
     private static readonly Rgba[] Pants = { Rgba.Hex(0x2f3a5a), Rgba.Hex(0x3d3d3d), Rgba.Hex(0x5a3f2f) };
 
-    public static AtlasSet Generate(IEnumerable<string> employeeIds)
+    private static int? _playerShirt;
+
+    /// <param name="playerShirt">Index into <see cref="Shirts"/> for the player's shirt; null keeps the hashed look.</param>
+    public static AtlasSet Generate(IEnumerable<string> employeeIds, int? playerShirt = null)
     {
+        _playerShirt = playerShirt;
         var ids = employeeIds.Append(Player.Id).Distinct(StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToList();
 
         // Every sprite: name, size, frames, fps, painter(frameIndex, painter at origin).
@@ -103,9 +107,12 @@ public static class SpriteGenerator
     private static Look LookFor(string id)
     {
         var h = Fnv1a(id);
-        return new Look(
+        var look = new Look(
             Skins[(int)(h % 4)], Hairs[(int)((h >> 3) % 6)], Shirts[(int)((h >> 7) % 8)], Pants[(int)((h >> 11) % 3)],
             LongHair: ((h >> 14) & 1) == 1, Stripe: ((h >> 15) & 1) == 1);
+        return id == Player.Id && _playerShirt is { } shirt
+            ? look with { Shirt = Shirts[((shirt % Shirts.Length) + Shirts.Length) % Shirts.Length] }
+            : look;
     }
 
     /// <summary>A 16×16 person facing right. Frames vary by animation; the renderer flips for left.</summary>

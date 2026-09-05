@@ -55,6 +55,11 @@ public sealed class SceneRenderer : IDisposable
     public Manifest Manifest => _manifest;
     public ParticleSystem Particles => _particles;
 
+    /// <summary>Video settings: the light map (off = a flat ambient tint), particles, screen shake.</summary>
+    public bool LightingEnabled { get; set; } = true;
+    public bool ParticlesEnabled { get; set; } = true;
+    public bool ShakeEnabled { get; set; } = true;
+
     /// <summary>Ambient dust drifting over the floor. Off by default so golden frames stay stable.</summary>
     public bool DustEnabled
     {
@@ -79,21 +84,21 @@ public sealed class SceneRenderer : IDisposable
     public void Draw(Simulation sim, Camera camera, TimeOnly clock, IReadOnlyList<Shift> shifts, float dt,
                      Player? player = null, Interactable? target = null)
     {
-        _particles.Consume(sim.Moments);
-        _shake.Consume(sim.Moments);
+        if (ParticlesEnabled) _particles.Consume(sim.Moments);
+        if (ShakeEnabled) _shake.Consume(sim.Moments);
         _particles.Update(dt);
         _shake.Update(dt);
 
         // Light map first (it switches render targets), then the scene.
         var (ambient, phase) = Ambient.For(clock, shifts);
-        _lightMap.Render(ambient, Lights.For(sim, phase, sim.Elapsed), sim.World.Map);
+        if (LightingEnabled) _lightMap.Render(ambient, Lights.For(sim, phase, sim.Elapsed), sim.World.Map);
 
         _device.SetRenderTarget(_target);
         _device.Clear(ToColor(Rgba.Hex(0x2f3a2a)));
 
         var tl = camera.ViewTopLeft;
-        var shakeX = MathF.Round(_shake.Offset.X);
-        var shakeY = MathF.Round(_shake.Offset.Y);
+        var shakeX = ShakeEnabled ? MathF.Round(_shake.Offset.X) : 0f;
+        var shakeY = ShakeEnabled ? MathF.Round(_shake.Offset.Y) : 0f;
         var transform = Matrix.CreateTranslation(-tl.X + shakeX, -tl.Y + shakeY, 0) * Matrix.CreateScale(camera.Zoom, camera.Zoom, 1);
 
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, transform);
@@ -110,16 +115,25 @@ public sealed class SceneRenderer : IDisposable
         if (target is { } t) DrawPrompt(sim, t);
         _batch.End();
 
-        _batch.Begin(SpriteSortMode.Deferred, Multiply, SamplerState.PointClamp, null, null, null, transform);
-        _batch.Draw(_lightMap.Target, XnaVector2.Zero, Color.White);
-        _batch.End();
+        if (LightingEnabled)
+        {
+            _batch.Begin(SpriteSortMode.Deferred, Multiply, SamplerState.PointClamp, null, null, null, transform);
+            _batch.Draw(_lightMap.Target, XnaVector2.Zero, Color.White);
+            _batch.End();
+        }
+        else
+        {
+            _batch.Begin(SpriteSortMode.Deferred, Multiply, SamplerState.PointClamp);
+            _batch.Draw(_atlasTexture, new Rectangle(0, 0, NativeWidth, NativeHeight), ToXna(_manifest.Get("pixel").Frames[0]), ToColor(ambient));
+            _batch.End();
+        }
 
         var pixel = ToXna(_manifest.Get("pixel").Frames[0]);
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, transform);
-        foreach (var p in _particles.Live) if (!p.Additive) DrawParticle(p, pixel);
+        if (ParticlesEnabled) foreach (var p in _particles.Live) if (!p.Additive) DrawParticle(p, pixel);
         _batch.End();
         _batch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.PointClamp, null, null, null, transform);
-        foreach (var p in _particles.Live) if (p.Additive) DrawParticle(p, pixel);
+        if (ParticlesEnabled) foreach (var p in _particles.Live) if (p.Additive) DrawParticle(p, pixel);
         _batch.End();
 
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, transform);

@@ -14,6 +14,7 @@ public static class UiScenes
     public static readonly IReadOnlyList<string> Names = new[]
     {
         "office", "dialogue", "overlay-employees", "overlay-tasks", "textentry", "confirm", "hiring", "hiring-brains", "tickets", "desk",
+        "menu", "menu-multiplayer", "workplaces", "new-workplace", "settings-video", "settings-controls", "pause",
     };
 
     public sealed record Scene(Simulation Sim, Player You, UiState Ui, Toasts Toasts);
@@ -76,6 +77,40 @@ public static class UiScenes
                 you.Teleport(Agent.Centre(sim.World.BossSpot));
                 Push(ui, DialogueScript.BossDesk(OfficePaths.For("Main Office", @"C:\Users\you\Documents")));
                 break;
+            case "menu":
+                ui.Push(MenuUi.MainMenu());
+                break;
+            case "menu-multiplayer":
+                ui.Push(MenuUi.MainMenu());
+                ui.Push(MenuUi.MultiplayerMenu());
+                break;
+            case "workplaces":
+                ui.Push(MenuUi.MainMenu());
+                ui.Push(WorkplaceList());
+                break;
+            case "new-workplace":
+                ui.Push(MenuUi.MainMenu());
+                ui.Push(WorkplaceList());
+                var naming = new TextEntry("New workplace", new[] { new Field("Name", false, 32) }, payload: new NewWorkplace());
+                foreach (var c in "Side Project") naming.Handle(UiKey.Char(c));
+                ui.Push(naming);
+                break;
+            case "settings-video":
+                ui.Push(MenuUi.MainMenu());
+                ui.Push(new SettingsScreen(new SettingsModel(new OfficeConfig())));
+                break;
+            case "settings-controls":
+                ui.Push(MenuUi.MainMenu());
+                var controls = new SettingsScreen(new SettingsModel(new OfficeConfig()));
+                controls.ShowTab(SettingsTab.Controls);
+                for (var i = 0; i < 4; i++) controls.Handle(UiKey.Down);
+                controls.Handle(UiKey.Accept);   // waiting for a key on "Talk / use"
+                ui.Push(controls);
+                break;
+            case "pause":
+                you.Teleport(Agent.Centre(sim.World.Spawn) + new Vector2(0, -48));
+                ui.Push(MenuUi.PauseMenu());
+                break;
             default:
                 throw new ArgumentException($"unknown scene '{name}'; scenes: {string.Join(", ", Names)}", nameof(name));
         }
@@ -90,17 +125,20 @@ public static class UiScenes
 
     public static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-09-04T12:00:00Z");
 
-    /// <summary>Four employees seated after forty seconds, Rex waiting on a human. Same seed every time.</summary>
-    public static Simulation SeededOffice()
+    /// <summary>The showroom: four employees seated after forty seconds, Rex waiting on a human. Same seed every time.</summary>
+    public static Simulation SeededOffice() => Showroom.Build();
+
+    /// <summary>Three workplaces as the list shows them, measured against <see cref="Now"/>.</summary>
+    public static WorkplaceSelect WorkplaceList()
     {
-        var sim = new Simulation(WorldLayout.Generate(new[] { "ada-coder", "mia-manager", "rex-reviewer", "vfx-artist" }), seed: 7);
-        sim.Apply(new EmployeeAppeared("ada-coder", "Ada", EmployeeStatus.Working, "Build the parser"));
-        sim.Apply(new EmployeeAppeared("mia-manager", "Mia", EmployeeStatus.Awake, null));
-        sim.Apply(new EmployeeAppeared("rex-reviewer", "Rex", EmployeeStatus.Awake, null));
-        sim.Apply(new EmployeeAppeared("vfx-artist", "Vex", EmployeeStatus.Asleep, null));
-        for (var i = 0; i < 60 * 40; i++) sim.Update(1f / 60f);
-        sim.Apply(new HumanNeeded("rex-reviewer"));
-        return sim;
+        const string docs = "C:/Users/you/Documents/Home Workplace/";
+        var rows = new[]
+        {
+            new WorkplaceInfo("Main Office", docs + "Main Office", 4, Now.AddDays(-2), Now.AddMinutes(-3), Favourite: true),
+            new WorkplaceInfo("Side Project", docs + "Side Project", 1, Now.AddDays(-1), Now.AddHours(-5), Favourite: false),
+            new WorkplaceInfo("Sandbox", docs + "Sandbox", 0, Now, null, Favourite: false),
+        };
+        return new WorkplaceSelect(rows) { Clock = () => Now };
     }
 
     public static Dictionary<string, EmployeeDto> Employees() => new()

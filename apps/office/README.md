@@ -11,8 +11,14 @@ particles drift, and every moment has a synthesized sound.
 dotnet run --project apps/office/HomeWorkplace.Office
 ```
 
-The game boots the context API and Foreman itself (same `app.json` as the desktop shell,
-`connectOnly` honoured) behind a boot screen, then the office fades in.
+The game opens on a Terraria-style main menu over a showroom office: Single Player,
+Multiplayer, Settings, Exit. Single Player lists your workplaces (one folder each under
+the Documents folder, `Home Workplace/<name>`): Play, Rename, Copy, Delete (to a trash
+folder), Folder, Fav, and New workplace. Playing one boots the context API and Foreman for
+that folder (same `app.json` as the desktop shell, `connectOnly` honoured) behind a boot
+screen, then the office fades in. Esc in the office pauses: Resume, Settings, Leave the
+office (back to the menu, services stopped), Quit. Settings (video, interface, audio,
+controls, general) apply at once and are saved to `app.json`; keys are rebindable.
 
 | Key | Action |
 |-----|--------|
@@ -27,14 +33,19 @@ The game boots the context API and Foreman itself (same `app.json` as the deskto
 | M | mute |
 | F12 | save the current frame to `frames/` beside the exe |
 | R | retry a failed boot |
-| Esc | back out of a dialogue or menu (close the window to quit) |
+| Esc | back out of a dialogue or menu; with nothing open, pause |
 
-Dev flags for unattended runs: `--clock HH:mm` fixes the office clock (see night lighting
-at noon), `--frames-every N` saves a frame every N seconds, `--exit-after N` quits, and
-`--smoke-script "walk ada-coder;talk;pick 0;type Hello;enter;esc;tab;wait 2"` drives the UI.
+Dev flags for unattended runs: `--workplace NAME` skips the menu and boots that workplace,
+`--clock HH:mm` fixes the office clock (see night lighting at noon), `--frames-every N`
+saves a frame every N seconds, `--exit-after N` quits, and
+`--smoke-script "walk ada-coder;talk;pick 0;type Hello;enter;esc;tab;wait 2"` drives the UI
+(a script that starts with `menu` drives the menus instead: `menu;enter;enter;wait 10;pause;
+down;down;enter` plays the first workplace, pauses, and leaves).
 `--ui-shot <scene> [png]` renders one canned UI scene with no services and exits (scenes:
 office, dialogue, overlay-employees, overlay-tasks, textentry, confirm, hiring, hiring-brains,
-tickets, desk; `--scale N` picks the window scale); `scriptsIshot.ps1 <scene|all>` wraps it
+tickets, desk, menu, menu-multiplayer, workplaces, new-workplace, settings-video,
+settings-controls, pause; `--scale N` picks the window scale); `scripts/uishot.ps1 <scene|all>`
+wraps it
 and drops PNGs under `shots`. UI text is drawn with Cascadia Mono (Consolas if missing).
 
 ## Hiring

@@ -141,6 +141,37 @@ public sealed class Hud : IDisposable
         }
     }
 
+    /// <summary>Big pixel text for the title: each glyph pixel becomes a <paramref name="zoom"/>-px block, with an optional drop shadow.</summary>
+    public void PixelTextBig(string text, int x, int y, int zoom, Color ink, Color? shadow = null)
+    {
+        var offset = Math.Max(1, zoom / 2);
+        if (shadow is { } s) PixelBlocks(text, x + offset, y + offset, zoom, s);
+        PixelBlocks(text, x, y, zoom, ink);
+    }
+
+    public static int PixelTextWidth(string text, int zoom) => text.Length * PixelFont.Advance * zoom;
+
+    private void PixelBlocks(string text, int x, int y, int zoom, Color ink)
+    {
+        var cx = x;
+        foreach (var ch in text.ToUpperInvariant())
+        {
+            var g = PixelFont.Glyph(ch);
+            for (var row = 0; row < PixelFont.GlyphHeight; row++)
+            for (var col = 0; col < PixelFont.GlyphWidth; col++)
+                if (g[row][col] == '#')
+                    _batch.Draw(_pixel, new Rectangle((cx + col * zoom) * _scale, (y + row * zoom) * _scale, zoom * _scale, zoom * _scale), ink);
+            cx += PixelFont.Advance * zoom;
+        }
+    }
+
+    /// <summary>Drop the rasterised fonts (the UI font setting changed); they rebuild on the next draw.</summary>
+    public void ResetFonts()
+    {
+        foreach (var f in _fonts.Values) f?.Texture.Dispose();
+        _fonts.Clear();
+    }
+
     /// <summary>The colour a markup name stands for, or null for plain ink.</summary>
     public static Color? RunColor(string? name) => name switch
     {

@@ -43,4 +43,6 @@ public sealed class Toasts
     }
 
     public void Dismiss(Toast toast) => _live.Remove(toast);
+
+    public void Clear() => _live.Clear();
 }

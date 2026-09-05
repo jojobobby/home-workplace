@@ -26,6 +26,9 @@ public sealed class EventPump
 
     public long Cursor { get; private set; }
 
+    /// <summary>Start over from the first event (another workplace's Foreman).</summary>
+    public void Reset() => Cursor = 0;
+
     /// <summary>Full refetch of every collection. Also the initial load.</summary>
     public async Task LoadAllAsync(CancellationToken ct)
     {
