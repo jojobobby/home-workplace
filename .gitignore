@@ -36,3 +36,6 @@ services/**/data/
 # hires are your company, not the repo
 employees/*
 !employees/.gitkeep
+
+# UI screenshots
+shots/

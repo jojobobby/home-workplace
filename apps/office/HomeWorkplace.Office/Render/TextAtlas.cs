@@ -44,6 +44,19 @@ public sealed class TextAtlas
         return new SpriteRect(i % Columns * CellWidth, i / Columns * CellHeight, CellWidth, CellHeight);
     }
 
+    /// <summary>The first of <paramref name="preferred"/> that is installed, else null (GDI+ would silently substitute otherwise).</summary>
+    public static string? PickFamily(params string[] preferred)
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        try
+        {
+            using var installed = new InstalledFontCollection();
+            var names = installed.Families.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return preferred.FirstOrDefault(names.Contains);
+        }
+        catch (Exception) { return null; }
+    }
+
     /// <summary>Rasterise <paramref name="family"/> so its widest glyph fits a cell; null when GDI+ is unavailable.</summary>
     public static TextAtlas? TryBuild(string family, int cellWidth, int cellHeight)
     {

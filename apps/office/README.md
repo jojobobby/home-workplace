@@ -32,6 +32,10 @@ The game boots the context API and Foreman itself (same `app.json` as the deskto
 Dev flags for unattended runs: `--clock HH:mm` fixes the office clock (see night lighting
 at noon), `--frames-every N` saves a frame every N seconds, `--exit-after N` quits, and
 `--smoke-script "walk ada-coder;talk;pick 0;type Hello;enter;esc;tab;wait 2"` drives the UI.
+`--ui-shot <scene> [png]` renders one canned UI scene with no services and exits (scenes:
+office, dialogue, overlay-employees, overlay-tasks, textentry, confirm, hiring, hiring-brains,
+tickets, desk; `--scale N` picks the window scale); `scriptsIshot.ps1 <scene|all>` wraps it
+and drops PNGs under `shots`. UI text is drawn with Cascadia Mono (Consolas if missing).
 
 ## Hiring
 

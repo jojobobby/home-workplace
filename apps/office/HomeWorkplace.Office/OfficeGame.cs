@@ -83,6 +83,10 @@ public sealed class OfficeGame : Game
     public float? FrameEvery { get; set; }
     public float? ExitAfter { get; set; }
 
+    /// <summary>Dev: render one canned UI scene (see <see cref="Dev.UiScenes"/>) with no services, save it, exit.</summary>
+    public (string Scene, string Path)? UiShot { get; set; }
+    private int _uiShotFrames;
+
     public OfficeGame(AppConfig config, ServiceSupervisor supervisor, AppStore store, EventPump pump,
                       IForemanApi foreman, IContextApi context, CliSetupChecker setup, OfficePaths? paths = null)
     {
@@ -128,8 +132,26 @@ public sealed class OfficeGame : Game
     protected override void Initialize()
     {
         Window.TextInput += (_, e) => _typed.Enqueue(e.Character);
-        StartBoot();
+        if (UiShot is null) StartBoot();
         base.Initialize();
+    }
+
+    /// <summary>UI-shot mode: a seeded office and the scene's layers, no boot, no store, no input.</summary>
+    private void LoadUiShot(string scene)
+    {
+        var s = Dev.UiScenes.Build(scene);
+        _sim = s.Sim;
+        _you = s.You;
+        _feed = new ForemanFeed();
+        _renderer?.Dispose();
+        _renderer = new SceneRenderer(GraphicsDevice, SpriteGenerator.Generate(s.Sim.World.Desks.Select(d => d.OwnerId)));
+        _uiRenderer = new UiRenderer(_hud!, _renderer);
+        _camera = new Camera(SceneRenderer.NativeWidth, SceneRenderer.NativeHeight);
+        _target = _you.Target(_sim);
+        foreach (var layer in s.Ui.Layers) _office.State.Push(layer);
+        foreach (var t in s.Toasts.Live) _office.Toasts.Add(t.Text, t.Kind, t.EmployeeId);
+        _phase = Phase.Running;
+        _fade = 1f;
     }
 
     protected override void LoadContent()
@@ -179,6 +201,15 @@ public sealed class OfficeGame : Game
         {
             if (Pressed(keys, Keys.F3)) _debug = !_debug;
             if (Pressed(keys, Keys.M) && _jukebox is not null) _jukebox.Muted = !_jukebox.Muted;
+        }
+
+        if (UiShot is { } shot)
+        {
+            if (_phase != Phase.Running) LoadUiShot(shot.Scene);
+            _prevKeys = keys;
+            _prevMouse = mouse;
+            base.Update(gameTime);
+            return;
         }
 
         switch (_phase)
@@ -483,6 +514,11 @@ public sealed class OfficeGame : Game
 
             if (Pressed(Keyboard.GetState(), Keys.F12) && !_office.Typing) SaveFrame();
             if (FrameEvery is { } every && _runTime >= _nextAutoFrame) { SaveFrame(); _nextAutoFrame += every; }
+            if (UiShot is { } shot && ++_uiShotFrames >= 3)   // a couple of frames so the font atlas and lights settle
+            {
+                SaveFrame(shot.Path);
+                Exit();
+            }
         }
         else
         {
@@ -541,7 +577,12 @@ public sealed class OfficeGame : Game
     {
         var dir = Path.Combine(AppContext.BaseDirectory, "frames");
         Directory.CreateDirectory(dir);
-        var path = Path.Combine(dir, $"office-{DateTime.Now:yyyyMMdd-HHmmss}.png");
+        SaveFrame(Path.Combine(dir, $"office-{DateTime.Now:yyyyMMdd-HHmmss}.png"));
+    }
+
+    private void SaveFrame(string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         var w = GraphicsDevice.PresentationParameters.BackBufferWidth;
         var h = GraphicsDevice.PresentationParameters.BackBufferHeight;
         var data = new Color[w * h];

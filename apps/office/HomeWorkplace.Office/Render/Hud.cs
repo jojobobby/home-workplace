@@ -9,8 +9,8 @@ namespace HomeWorkplace.Office.Render;
 /// </summary>
 public sealed class Hud : IDisposable
 {
-    /// <summary>The system font UI text is drawn with; the world keeps its pixel font.</summary>
-    public static string FontFamily { get; set; } = "Consolas";
+    /// <summary>Fonts UI text is drawn with, most wanted first: the terminal's default, then the console classic. The world keeps its pixel font.</summary>
+    public static string[] FontFamilies { get; set; } = { "Cascadia Mono", "Cascadia Code", "Consolas", "Lucida Console" };
 
     private readonly GraphicsDevice _device;
     private readonly SpriteBatch _batch;
@@ -103,7 +103,7 @@ public sealed class Hud : IDisposable
             foreach (var ch in text)
             {
                 var src = f.Atlas.Glyph(ch);
-                _batch.Draw(f.Texture, new Rectangle(cx * _scale, y * _scale, f.Atlas.CellWidth, f.Atlas.CellHeight), ToXna(src), ink);
+                _batch.Draw(f.Texture, new Rectangle(cx * _scale, (y - 1) * _scale, f.Atlas.CellWidth, f.Atlas.CellHeight), ToXna(src), ink);
                 cx += PixelFont.Advance;
             }
             return;
@@ -120,11 +120,12 @@ public sealed class Hud : IDisposable
         }
     }
 
-    /// <summary>The system font rasterised for this scale: 6×8 native cells become (6·scale)×(8·scale) glyph boxes.</summary>
+    /// <summary>The system font rasterised for this scale: a 6-wide, 10-tall native cell (the line pitch) per character, drawn one native pixel above the baseline row.</summary>
     private (Texture2D Texture, TextAtlas Atlas)? FontFor(int scale)
     {
         if (_fonts.TryGetValue(scale, out var cached)) return cached;
-        var atlas = TextAtlas.TryBuild(FontFamily, PixelFont.Advance * scale, (PixelFont.GlyphHeight + 1) * scale);
+        var family = TextAtlas.PickFamily(FontFamilies);
+        var atlas = family is null ? null : TextAtlas.TryBuild(family, PixelFont.Advance * scale, (PixelFont.GlyphHeight + 3) * scale);
         (Texture2D, TextAtlas)? entry = null;
         if (atlas is not null)
         {
