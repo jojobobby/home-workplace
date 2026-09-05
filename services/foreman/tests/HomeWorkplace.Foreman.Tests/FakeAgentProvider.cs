@@ -15,9 +15,16 @@ public sealed class FakeAgentProvider : IAgentProvider
 
     public void EnqueueDecision(ManagerDecision decision, decimal costUsd = 0m) => _decisions.Enqueue((decision, costUsd));
 
+    private readonly ConcurrentQueue<string> _managerErrors = new();
+    /// <summary>The next manager run fails at the API with this message (no decision).</summary>
+    public void EnqueueManagerError(string error) => _managerErrors.Enqueue(error);
+
     public Task<ManagerRunResult> RunManagerAsync(RunSpec spec, CancellationToken ct)
     {
         lock (ManagerSpecs) ManagerSpecs.Add(spec);
+        if (_managerErrors.TryDequeue(out var error))
+            return Task.FromResult(new ManagerRunResult(new ManagerDecision(error, new[] { new ManagerAction("wait") }),
+                new Usage(1, null, null, null, null), spec.SessionId ?? Guid.NewGuid().ToString(), Error: error));
         var (decision, cost) = _decisions.TryDequeue(out var x)
             ? x
             : (new ManagerDecision("nothing to do", new[] { new ManagerAction("wait") }), 0m);

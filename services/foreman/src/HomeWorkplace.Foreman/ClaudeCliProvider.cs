@@ -43,8 +43,8 @@ public sealed class ClaudeCliProvider : IAgentProvider
             var root = doc.RootElement;
             var sessionId = root.TryGetProperty("session_id", out var sid) ? sid.GetString() ?? requestedSessionId ?? "" : requestedSessionId ?? "";
             var usage = ParseUsage(root);
-            if (root.TryGetProperty("is_error", out var err) && err.ValueKind == JsonValueKind.True)
-                return Failed(runId, sessionId, usage, root.ToString());
+            if (IsError(root, out var message))
+                return Failed(runId, sessionId, usage, root.ToString(), message);
 
             var resultText = root.TryGetProperty("result", out var r) ? r.GetString() ?? "" : "";
             using var inner = JsonDocument.Parse(resultText);
@@ -129,21 +129,42 @@ public sealed class ClaudeCliProvider : IAgentProvider
                 return new ManagerRunResult(
                     new ManagerDecision($"manager run timed out after {spec.Timeout.TotalMinutes} minutes", new[] { new ManagerAction("wait") }),
                     new Usage(0, null, null, null, null), spec.SessionId ?? "");
-            try
-            {
-                using var doc = JsonDocument.Parse(stdout);
-                var root = doc.RootElement;
-                var sessionId = root.TryGetProperty("session_id", out var sid) ? sid.GetString() ?? spec.SessionId ?? "" : spec.SessionId ?? "";
-                var resultText = root.TryGetProperty("result", out var r) ? r.GetString() ?? "{}" : "{}";
-                return new ManagerRunResult(ManagerActions.Parse(resultText), ParseUsage(root), sessionId);
-            }
-            catch (Exception ex)
-            {
-                return new ManagerRunResult(ManagerActions.Parse($"<<{ex.Message}>> {Tail(stdout)}"),
-                    new Usage(0, null, null, null, null), spec.SessionId ?? "");
-            }
+            return ParseManager(stdout, spec.SessionId);
         }
         finally { TryDelete(tmp); }
+    }
+
+    /// <summary>A manager envelope: an API error becomes <see cref="ManagerRunResult.Error"/> with a placeholder wait decision.</summary>
+    public static ManagerRunResult ParseManager(string json, string? requestedSessionId)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            var sessionId = root.TryGetProperty("session_id", out var sid) ? sid.GetString() ?? requestedSessionId ?? "" : requestedSessionId ?? "";
+            var usage = ParseUsage(root);
+            if (IsError(root, out var message))
+                return new ManagerRunResult(new ManagerDecision(message, new[] { new ManagerAction("wait") }), usage, sessionId, Error: message);
+            var resultText = root.TryGetProperty("result", out var r) ? r.GetString() ?? "{}" : "{}";
+            return new ManagerRunResult(ManagerActions.Parse(resultText), usage, sessionId);
+        }
+        catch (Exception ex)
+        {
+            return new ManagerRunResult(ManagerActions.Parse($"<<{ex.Message}>> {Tail(json)}"),
+                new Usage(0, null, null, null, null), requestedSessionId ?? "");
+        }
+    }
+
+    /// <summary>True when the envelope reports an API-level error; <paramref name="message"/> is what the CLI printed as its result.</summary>
+    public static bool IsError(JsonElement root, out string message)
+    {
+        message = "";
+        if (!(root.TryGetProperty("is_error", out var err) && err.ValueKind == JsonValueKind.True)) return false;
+        message = root.TryGetProperty("result", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() ?? "" : "";
+        if (root.TryGetProperty("api_error_status", out var status) && status.TryGetInt32(out var code)) message = $"{message} (HTTP {code})".Trim();
+        if (message.Length == 0) message = "the claude CLI reported an error";
+        if (message.Length > 400) message = message[..400];
+        return true;
     }
 
     private static Usage ParseUsage(JsonElement root)
@@ -164,9 +185,9 @@ public sealed class ClaudeCliProvider : IAgentProvider
         _ => RunOutcome.Failed,
     };
 
-    private static RunResult Failed(string runId, string sessionId, Usage usage, string tail) => new()
+    private static RunResult Failed(string runId, string sessionId, Usage usage, string tail, string? summary = null) => new()
     {
-        RunId = runId, Status = RunOutcome.Failed, Summary = "run failed", Ask = null,
+        RunId = runId, Status = RunOutcome.Failed, Summary = summary ?? "run failed", Ask = null,
         Artifacts = Array.Empty<string>(), SessionId = sessionId, Usage = usage, RawTail = Tail(tail),
     };
 

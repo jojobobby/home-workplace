@@ -34,7 +34,8 @@ public class SupervisorTests
         Assert.Contains("context-api", runner.Starts[0].Args[2], StringComparison.Ordinal);
         Assert.Contains("foreman", runner.Starts[1].Args[2], StringComparison.Ordinal);
         Assert.All(runner.Starts, s => Assert.DoesNotContain(s.Environment.Keys,
-            k => k.StartsWith("CLAUDE", StringComparison.OrdinalIgnoreCase) || k.StartsWith("ANTHROPIC", StringComparison.OrdinalIgnoreCase)));
+            k => k.StartsWith("CLAUDE", StringComparison.OrdinalIgnoreCase) ||
+                 (k.StartsWith("ANTHROPIC", StringComparison.OrdinalIgnoreCase) && !EnvironmentScrub.KeptForApiKeyUse.Contains(k))));
         Assert.Contains(progress, p => p.Service == ServiceName.ContextApi && p.Healthy);
         Assert.Contains(progress, p => p.Service == ServiceName.Foreman && p.Healthy);
         Assert.True(health.Probes(Fm) >= 3);

@@ -10,11 +10,15 @@ namespace HomeWorkplace.Foreman;
 /// </summary>
 public static class ProcessRunner
 {
+    /// <summary>The API-key family survives the scrub: it is the sanctioned way to run headless when subscription access is refused.</summary>
+    public static readonly HashSet<string> KeptForApiKeyUse = new(StringComparer.OrdinalIgnoreCase) { "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL" };
+
     public static IDictionary<string, string?> Scrub(IDictionary<string, string?> source)
     {
         var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var (k, v) in source)
         {
+            if (KeptForApiKeyUse.Contains(k)) { result[k] = v; continue; }
             if (k.StartsWith("CLAUDE", StringComparison.OrdinalIgnoreCase) ||
                 k.StartsWith("ANTHROPIC", StringComparison.OrdinalIgnoreCase))
                 continue;

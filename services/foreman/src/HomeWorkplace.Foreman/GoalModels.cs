@@ -22,6 +22,9 @@ public sealed class GoalModel
     /// <summary>A settle (or top-up/approval) happened and the manager has not looked yet. Persisted, so it survives a restart.</summary>
     public bool NeedsManagerAttention { get; set; }
     public Decision? LastDecision { get; set; }
+    /// <summary>Why the last manager run could not happen (an API refusal, a crash); cleared by the next run that does.</summary>
+    public string? LastError { get; set; }
+    public DateTimeOffset? LastErrorAt { get; set; }
     public SessionRef? Session { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
@@ -43,4 +46,5 @@ public sealed record ManagerAction(
 public sealed record ManagerDecision(string Summary, IReadOnlyList<ManagerAction> Actions);
 
 /// <summary>What a manager run yields: the decision, what it cost, and the session to resume.</summary>
-public sealed record ManagerRunResult(ManagerDecision Decision, Usage Usage, string SessionId);
+/// <summary><paramref name="Error"/> is set when the run never produced a decision (the CLI reported an API error); the decision is then a placeholder.</summary>
+public sealed record ManagerRunResult(ManagerDecision Decision, Usage Usage, string SessionId, string? Error = null);

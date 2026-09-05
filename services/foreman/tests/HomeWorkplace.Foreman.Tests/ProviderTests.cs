@@ -54,7 +54,7 @@ public class ProviderTests
     [Fact]
     public void The_environment_scrub_removes_claude_and_anthropic_variables()
     {
-        var src = new Dictionary<string, string?> { ["PATH"] = "x", ["CLAUDECODE"] = "1", ["CLAUDE_CODE_CHILD_SESSION"] = "1", ["ANTHROPIC_BASE_URL"] = "y", ["HOME"] = "h" };
+        var src = new Dictionary<string, string?> { ["PATH"] = "x", ["CLAUDECODE"] = "1", ["CLAUDE_CODE_CHILD_SESSION"] = "1", ["ANTHROPIC_LOG"] = "y", ["HOME"] = "h" };
         var scrubbed = ProcessRunner.Scrub(src);
         Assert.True(scrubbed.ContainsKey("PATH")); Assert.True(scrubbed.ContainsKey("HOME"));
         Assert.DoesNotContain(scrubbed.Keys, k => k.StartsWith("CLAUDE", StringComparison.OrdinalIgnoreCase) || k.StartsWith("ANTHROPIC", StringComparison.OrdinalIgnoreCase));
@@ -80,5 +80,41 @@ public class ProviderTests
         Assert.Equal(RunOutcome.Done, result.Status);
         Assert.Equal("hello from codex", result.Summary);
         Assert.Equal("codex-sess-xyz", result.SessionId);
+    }
+}
+
+public class ProviderErrorTests
+{
+    private const string Error403 = """{"type":"result","subtype":"success","is_error":true,"duration_ms":322,"num_turns":1,"session_id":"848a42d4","total_cost_usd":0,"usage":{"input_tokens":0,"output_tokens":0},"api_error_status":403,"result":"Your organization has disabled Claude subscription access for Claude Code · Use an Anthropic API key instead, or ask your admin to enable access"}""";
+
+    [Fact]
+    public void A_claude_api_error_envelope_is_a_failed_run_whose_summary_is_the_error()
+    {
+        var result = ClaudeCliProvider.Parse(Error403, runId: "r1", requestedSessionId: null);
+        Assert.Equal(RunOutcome.Failed, result.Status);
+        Assert.Contains("organization has disabled", result.Summary);
+        Assert.Equal("848a42d4", result.SessionId);
+    }
+
+    [Fact]
+    public void A_claude_api_error_envelope_is_a_manager_error_not_a_decision()
+    {
+        var result = ClaudeCliProvider.ParseManager(Error403, requestedSessionId: null);
+        Assert.NotNull(result.Error);
+        Assert.Contains("organization has disabled", result.Error);
+        Assert.Equal("wait", Assert.Single(result.Decision.Actions).Kind);
+    }
+
+    [Fact]
+    public void The_environment_scrub_keeps_api_key_variables_but_drops_session_markers()
+    {
+        var src = new Dictionary<string, string?> { ["ANTHROPIC_API_KEY"] = "sk", ["ANTHROPIC_AUTH_TOKEN"] = "t", ["ANTHROPIC_BASE_URL"] = "u", ["ANTHROPIC_LOG"] = "debug", ["CLAUDECODE"] = "1", ["CLAUDE_CODE_CHILD_SESSION"] = "1" };
+        var scrubbed = ProcessRunner.Scrub(src);
+        Assert.Equal("sk", scrubbed["ANTHROPIC_API_KEY"]);
+        Assert.Equal("t", scrubbed["ANTHROPIC_AUTH_TOKEN"]);
+        Assert.Equal("u", scrubbed["ANTHROPIC_BASE_URL"]);
+        Assert.False(scrubbed.ContainsKey("ANTHROPIC_LOG"));
+        Assert.False(scrubbed.ContainsKey("CLAUDECODE"));
+        Assert.False(scrubbed.ContainsKey("CLAUDE_CODE_CHILD_SESSION"));
     }
 }

@@ -89,6 +89,25 @@ public sealed class GoalBook
         Save(g);
     }
 
+    /// <summary>The manager run could not happen (an API refusal, a crash): remembered on the goal, told to the human, backed off by PumpGoals.</summary>
+    public void RecordManagerError(string goalId, string error, DateTimeOffset now)
+    {
+        if (Get(goalId) is not { } g || IsTerminal(g.Status)) return;
+        g.LastError = error;
+        g.LastErrorAt = now;
+        Save(g);
+        _events.Emit("human.needed", employeeId: g.Manager, data: new { goalId, reason = "manager run failed", error });
+        _ = _rooms.PostAsync(g.Room, "foreman", "Foreman", null, $"Manager run failed: {error}", CancellationToken.None);
+    }
+
+    public void ClearManagerError(string goalId)
+    {
+        if (Get(goalId) is not { LastError: not null } g) return;
+        g.LastError = null;
+        g.LastErrorAt = null;
+        Save(g);
+    }
+
     private static bool IsTerminal(GoalState s) => s is GoalState.Done or GoalState.Failed or GoalState.Cancelled;
 
     /// <summary>Budget exhausted: stop spawning and ask a human for a top-up or a cancel. Idempotent.</summary>

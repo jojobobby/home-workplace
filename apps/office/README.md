@@ -95,3 +95,21 @@ the manifest the generator produces (`Render/Atlas.cs`):
   (the renderer flips for left).
 - Bubbles `bubble_question`, `bubble_exclaim`, `bubble_dots`; a radial `light` sprite; a
   1×1 white `pixel`.
+
+## When a run fails
+
+Open the employee (or the whiteboard) and the dialogue says why; the task room and the
+Activity tab carry the same line. Two causes seen on a real machine:
+
+- **"Your organization has disabled Claude subscription access for Claude Code · Use an
+  Anthropic API key instead, or ask your admin to enable access" (HTTP 403).** Anthropic
+  refuses headless `claude -p` on this account's subscription; the interactive Claude Code
+  app still works. Nothing in Home Workplace can change that policy. Your options: set
+  `ANTHROPIC_API_KEY` (pay-per-use; the scrub passes `ANTHROPIC_API_KEY`,
+  `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` through to Foreman and the CLI), ask your
+  Anthropic admin to enable subscription access for Claude Code, or give the work to Codex
+  employees (sign in with `codex login`; the Setup tab shows whether that worked).
+- **A goal that stays in Planning.** Its manager is asleep (shift over, or a fresh boot
+  before the first scheduler tick). The goal room says so, and the whiteboard offers to
+  wake them. A manager run that fails at the API is written on the goal, toasted, and not
+  retried until something changes (a top-up, an approval, a wake) or ten minutes pass.

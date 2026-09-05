@@ -103,3 +103,38 @@ public class DialogueTests
         Assert.Equal(LayerResultKind.Pop, d.Handle(UiKey.Back).Kind);
     }
 }
+
+public class DialogueReasonTests
+{
+    private static EmployeeDto Emp(string id, string name, EmployeeStatus status, string role = "Software engineer")
+        => new() { Id = id, Name = name, Role = role, Status = status };
+
+    [Fact]
+    public void A_failed_task_tells_you_why()
+    {
+        var task = new TaskDto
+        {
+            Id = "t3", Title = "Ship it", Assignee = "ada", Status = TaskState.Failed,
+            Runs = new[] { new RunDto { Id = "r1", Employee = "ada", Status = "Failed", ResultSummary = "Your organization has disabled Claude subscription access for Claude Code" } },
+        };
+        var d = DialogueScript.For(Emp("ada", "Ada", EmployeeStatus.Awake), new Dictionary<string, TaskDto> { ["t3"] = task }, new Dictionary<string, GoalDto>());
+        Assert.Contains(d.Lines, l => l.Contains("organization has disabled"));
+    }
+
+    [Fact]
+    public void The_whiteboard_says_when_a_goals_manager_is_asleep_and_offers_to_wake_them()
+    {
+        var goal = new GoalDto { Id = "g1", Title = "Launch v1", Manager = "mia", Status = GoalState.Planning, BudgetUsd = 10 };
+        var d = DialogueScript.Whiteboard(new Dictionary<string, GoalDto> { ["g1"] = goal }, new[] { Emp("mia", "Mia", EmployeeStatus.Asleep, role: "Engineering manager") });
+        Assert.Contains(d.Lines, l => l.Contains("asleep", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(d.Options, o => o.Label == "Wake Mia" && o.Action is Wake { EmployeeId: "mia" });
+    }
+
+    [Fact]
+    public void The_whiteboard_shows_a_goals_last_manager_error()
+    {
+        var goal = new GoalDto { Id = "g1", Title = "Launch v1", Manager = "mia", Status = GoalState.Planning, BudgetUsd = 10, LastError = "Claude refused: subscription access disabled" };
+        var d = DialogueScript.Whiteboard(new Dictionary<string, GoalDto> { ["g1"] = goal }, new[] { Emp("mia", "Mia", EmployeeStatus.Awake, role: "Engineering manager") });
+        Assert.Contains(d.Lines, l => l.Contains("subscription access disabled"));
+    }
+}

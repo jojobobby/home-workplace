@@ -67,6 +67,15 @@ public sealed partial class RunSupervisor
             goal.Session = new SessionRef(def.Vendor.ToString(), result.SessionId, today);
             _goals.AddCost(goalId, Cost.Of(result.Usage, def.Model, _options.Pricing));
 
+            if (result.Error is { } error)
+            {
+                // No decision was made: tell the human, remember it on the goal, and let PumpGoals back off.
+                _events.Emit("run.finished", goal.Manager, goalId, runId, new { status = "Failed", summary = error, manager = true });
+                _goals.RecordManagerError(goalId, error, _clock.GetUtcNow());
+                return;
+            }
+            _goals.ClearManagerError(goalId);
+
             await ManagerActions.ExecuteAsync(goal, result.Decision, _tasks, _goals, _employees, _rooms, _options, this,
                 _clock.GetUtcNow(), CancellationToken.None);
 
@@ -89,8 +98,13 @@ public sealed partial class RunSupervisor
     /// <summary>Start a manager run for every goal that is waiting on one: still Planning, or Running with a pending settle.</summary>
     public void PumpGoals()
     {
+        var backoff = TimeSpan.FromMinutes(_options.ManagerErrorBackoffMinutes);
+        var now = _clock.GetUtcNow();
         foreach (var g in _goals.List().Where(g =>
                      g.Status == GoalState.Planning || (g.Status == GoalState.Running && g.NeedsManagerAttention)))
+        {
+            if (g.LastErrorAt is { } at && now - at < backoff) continue;   // a refused manager must not be hammered
             _ = RunManagerAsync(g.Id);
+        }
     }
 }

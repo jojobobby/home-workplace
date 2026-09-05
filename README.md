@@ -89,7 +89,10 @@ Next:
 ## Note on subscription use
 
 Driving several workers programmatically over consumer subscriptions may sit outside the
-Claude Max / Codex terms — the nested-session refusal shows the vendors have policy levers.
+Claude Max / Codex terms. On 2026-09-04 this became concrete: headless `claude -p` runs on
+the author's account were refused with HTTP 403 `oauth_org_not_allowed` ("Your organization
+has disabled Claude subscription access for Claude Code · Use an Anthropic API key instead"),
+while the interactive Claude Code app kept working.
 Foreman's provider is a swappable adapter so a sanctioned path (API key, team plan, or a
 future official agent runtime) is a drop-in. This is the project's largest external risk
 and is not solvable in code.

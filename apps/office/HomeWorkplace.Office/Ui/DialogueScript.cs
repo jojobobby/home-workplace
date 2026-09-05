@@ -28,7 +28,13 @@ public static class DialogueScript
             if (needsHuman.AwaitingApproval) lines.Add($"\"{needsHuman.Title}\" is done and needs your approval.");
             if (needsHuman.PendingQuestion is { } q) lines.Add($"I need you: {q}");
         }
-        if (failed is not null && needsHuman is null) lines.Add($"My last task, \"{failed.Title}\", failed.");
+        if (failed is not null && needsHuman is null)
+        {
+            var reason = failed.Runs.LastOrDefault(r => r.Status == "Failed")?.ResultSummary;
+            lines.Add(reason is { Length: > 0 } && reason != "run failed"
+                ? $"My last task, \"{failed.Title}\", failed: {reason}"
+                : $"My last task, \"{failed.Title}\", failed.");
+        }
 
         var options = new List<DialogueOption>();
         if (needsHuman is not null)
@@ -56,19 +62,31 @@ public static class DialogueScript
     public static Dialogue Whiteboard(IReadOnlyDictionary<string, GoalDto> goals, IEnumerable<EmployeeDto> employees)
     {
         var ordered = goals.Values.OrderByDescending(IsActive).ThenByDescending(g => g.CreatedAt).ToList();
-        var manager = employees.Where(IsManager).OrderBy(e => e.Id, StringComparer.Ordinal).FirstOrDefault();
+        var staff = employees.ToDictionary(e => e.Id, StringComparer.Ordinal);
+        var manager = staff.Values.Where(IsManager).OrderBy(e => e.Id, StringComparer.Ordinal).FirstOrDefault();
 
         var lines = new List<string>();
         if (ordered.Count == 0) lines.Add("The board is empty. Set a goal for a manager to run.");
         else
         {
             lines.Add("Goals on the board:");
-            foreach (var g in ordered.Take(6))
+            foreach (var g in ordered.Take(4))
+            {
                 lines.Add($"- {g.Title}: {g.Status}, ${g.SpentUsd:0.00} of ${g.BudgetUsd:0.00}");
+                if (g.LastError is { Length: > 0 } err && IsActive(g))
+                    lines.Add($"  manager run failed: {(err.Length > 70 ? err[..70] + "..." : err)}");
+            }
         }
         if (manager is null && ordered.Count == 0) lines.Add("Hire a manager to set goals.");
 
+        var sleeping = ordered.Where(IsActive)
+            .Select(g => staff.TryGetValue(g.Manager, out var m) && m.Status == EmployeeStatus.Asleep ? m : null)
+            .Where(m => m is not null).Select(m => m!).DistinctBy(m => m.Id).ToList();
+        foreach (var m in sleeping)
+            lines.Add($"{m.Name} is asleep; their goals wait until they wake. Wake them to start now.");
+
         var options = new List<DialogueOption>();
+        foreach (var m in sleeping) options.Add(new($"Wake {m.Name}", new Wake(m.Id)));
         foreach (var g in ordered.Where(IsActive))
         {
             options.Add(new($"Top up: {g.Title}", new TopUp(g.Id)));

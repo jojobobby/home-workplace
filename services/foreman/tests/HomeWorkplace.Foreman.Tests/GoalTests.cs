@@ -89,3 +89,19 @@ public class GoalTests
         try { Directory.Delete(dataPath, true); } catch { }
     }
 }
+
+public class GoalManagerAsleepTests
+{
+    [Fact]
+    public async Task Creating_a_goal_while_its_manager_sleeps_says_so_in_the_room_and_starts_no_run()
+    {
+        using var factory = ForemanFactory.Create(out var dp); GoalTests.WriteEmployee(dp, "mia");
+        using var c = factory.CreateClient();   // nobody woke mia
+
+        var resp = await c.PostAsJsonAsync("/goals", new { title = "Ship the parser", brief = "A JSON parser with tests", manager = "mia", budgetUsd = 5.00m });
+        var goal = await resp.Content.ReadFromJsonAsync<GoalModel>(TestJson.Options);
+
+        Assert.Contains(factory.ContextApi.Posts, p => p.Room == goal!.Room && p.Content.Contains("asleep", StringComparison.OrdinalIgnoreCase) && p.Content.Contains("mia"));
+        Assert.Empty(factory.Provider.ManagerSpecs);
+    }
+}

@@ -17,6 +17,9 @@ public sealed class ForemanOptions
     /// <summary>Cap on actions a single manager run may emit; extras are ignored.</summary>
     public int MaxActionsPerRun { get; set; } = 5;
 
+    /// <summary>After a manager run fails at the API, PumpGoals leaves the goal alone this long; explicit requests (top-up, approve, wake) still retry.</summary>
+    public int ManagerErrorBackoffMinutes { get; set; } = 10;
+
     /// <summary>
     /// $ per million tokens by model, used when a CLI does not report a cost. "default" is
     /// the fallback for unknown models. Tune to current list prices; wrong prices mis-budget

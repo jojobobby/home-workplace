@@ -79,6 +79,9 @@ public sealed record GoalDto
     public IReadOnlyList<string> PendingNotes { get; init; } = Array.Empty<string>();
     public bool NeedsManagerAttention { get; init; }
     public DecisionDto? LastDecision { get; init; }
+    /// <summary>Why the last manager run could not happen; null once a run succeeds.</summary>
+    public string? LastError { get; init; }
+    public DateTimeOffset? LastErrorAt { get; init; }
     public SessionDto? Session { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }

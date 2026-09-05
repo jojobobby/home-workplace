@@ -108,3 +108,60 @@ public class ManagerRunTests
         Assert.Equal(0.37m, after.SpentUsd);
     }
 }
+
+public class ManagerErrorTests
+{
+    private static Task<HttpResponseMessage> CreateGoal(HttpClient c)
+        => c.PostAsJsonAsync("/goals", new { title = "Ship the parser", brief = "A JSON parser with tests", manager = "mia", budgetUsd = 5.00m });
+
+    [Fact]
+    public async Task A_manager_run_refused_by_the_api_is_posted_to_the_room_recorded_on_the_goal_and_not_retried_in_a_loop()
+    {
+        using var factory = ForemanFactory.Create(out var dp);
+        GoalTests.WriteEmployee(dp, "mia");
+        factory.Provider.EnqueueManagerError("Your organization has disabled Claude subscription access for Claude Code");
+        using var c = factory.CreateClient();
+        await c.PostAsync("/employees/mia/wake", null);
+
+        var goal = await (await CreateGoal(c)).Content.ReadFromJsonAsync<GoalModel>(TestJson.Options);
+        var end = DateTime.UtcNow.AddSeconds(10);
+        GoalModel? after = null;
+        while (DateTime.UtcNow < end && (after = await c.GetFromJsonAsync<GoalModel>($"/goals/{goal!.Id}", TestJson.Options))?.LastError is null)
+            await Task.Delay(50);
+
+        Assert.NotNull(after?.LastError);
+        Assert.Contains("organization has disabled", after!.LastError);
+        Assert.Equal(GoalState.Planning, after.Status);
+        Assert.Null(after.LastDecision);
+        Assert.Contains(factory.ContextApi.Posts, p => p.Room == goal!.Room && p.Content.Contains("Manager run failed") && p.Content.Contains("organization has disabled"));
+
+        await Task.Delay(400);   // PumpGoals must not spin on a goal whose manager just failed
+        Assert.Single(factory.Provider.ManagerSpecs);
+
+        var events = await c.GetFromJsonAsync<EventPage>("/events?since=0&limit=200", TestJson.Options);
+        Assert.Contains(events!.Events, e => e.Type == "human.needed" && e.EmployeeId == "mia");
+    }
+
+    [Fact]
+    public async Task A_top_up_retries_a_goal_whose_manager_had_failed()
+    {
+        using var factory = ForemanFactory.Create(out var dp);
+        GoalTests.WriteEmployee(dp, "mia");
+        factory.Provider.EnqueueManagerError("api down");
+        factory.Provider.EnqueueDecision(new ManagerDecision("back", new[] { new ManagerAction("wait") }));
+        using var c = factory.CreateClient();
+        await c.PostAsync("/employees/mia/wake", null);
+        var goal = await (await CreateGoal(c)).Content.ReadFromJsonAsync<GoalModel>(TestJson.Options);
+        var end = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < end && (await c.GetFromJsonAsync<GoalModel>($"/goals/{goal!.Id}", TestJson.Options))?.LastError is null) await Task.Delay(50);
+
+        await c.PostAsJsonAsync($"/goals/{goal!.Id}/topup", new { addUsd = 1m });
+        end = DateTime.UtcNow.AddSeconds(10);
+        GoalModel? after = null;
+        while (DateTime.UtcNow < end && (after = await c.GetFromJsonAsync<GoalModel>($"/goals/{goal.Id}", TestJson.Options))?.LastDecision is null) await Task.Delay(50);
+
+        Assert.NotNull(after?.LastDecision);
+        Assert.Null(after!.LastError);
+        Assert.Equal(2, factory.Provider.ManagerSpecs.Count);
+    }
+}
