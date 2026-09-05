@@ -40,6 +40,8 @@ public static class ProcessRunner
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
+            StandardOutputEncoding = Encoding.UTF8,   // the CLIs print UTF-8; the console code page would mangle "·" into "Â·"
+            StandardErrorEncoding = Encoding.UTF8,
         };
         foreach (var a in leading) psi.ArgumentList.Add(a);
         foreach (var a in args) psi.ArgumentList.Add(a);
