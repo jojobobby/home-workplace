@@ -88,3 +88,33 @@ public class AtlasTests
         Assert.Equal(6 * 5, PixelFont.Measure("HELLO"));                 // 5 px glyph + 1 px gap
     }
 }
+
+public class TextAtlasTests
+{
+    [Fact]
+    public void A_system_font_is_rasterised_into_cells_that_fit_the_layout_grid()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var atlas = HomeWorkplace.Office.Render.TextAtlas.TryBuild("Consolas", 18, 24);
+        Assert.NotNull(atlas);
+        Assert.Equal(16 * 18, atlas!.Width);
+        Assert.Equal(HomeWorkplace.Office.Render.TextAtlas.Rows * 24, atlas.Height);
+        Assert.True(atlas.FontSize >= 10f, $"font size {atlas.FontSize}");
+
+        var a = atlas.Glyph('A');
+        Assert.Equal(18, a.W); Assert.Equal(24, a.H);
+        Assert.True(Opaque(atlas, a) > 20, "the A glyph has ink");
+        Assert.Equal(0, Opaque(atlas, atlas.Glyph(' ')));
+        Assert.True(Opaque(atlas, atlas.Glyph('g')) > 10, "lowercase is drawn");
+        Assert.Equal(atlas.Glyph('?'), atlas.Glyph('·'));   // outside ASCII falls back
+    }
+
+    private static int Opaque(HomeWorkplace.Office.Render.TextAtlas atlas, HomeWorkplace.Office.Render.SpriteRect r)
+    {
+        var n = 0;
+        for (var y = r.Y; y < r.Y + r.H; y++)
+        for (var x = r.X; x < r.X + r.W; x++)
+            if (atlas.Pixels[y * atlas.Width + x].A > 64) n++;
+        return n;
+    }
+}

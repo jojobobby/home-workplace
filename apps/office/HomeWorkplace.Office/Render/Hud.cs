@@ -9,9 +9,17 @@ namespace HomeWorkplace.Office.Render;
 /// </summary>
 public sealed class Hud : IDisposable
 {
+    /// <summary>The system font UI text is drawn with; the world keeps its pixel font.</summary>
+    public static string FontFamily { get; set; } = "Consolas";
+
+    private readonly GraphicsDevice _device;
     private readonly SpriteBatch _batch;
     private readonly Texture2D _pixel;
+    private readonly Dictionary<int, (Texture2D Texture, TextAtlas Atlas)?> _fonts = new();
     private Texture2D? _atlas;
+
+    /// <summary>Force the 5×7 pixel font for UI text (also what happens when no system font can be rasterised).</summary>
+    public bool PixelText { get; set; }
     private SpriteRect _panel, _panelDark;
     private int _scale = 1;
 
@@ -56,6 +64,7 @@ public sealed class Hud : IDisposable
 
     public Hud(GraphicsDevice device)
     {
+        _device = device;
         _batch = new SpriteBatch(device);
         _pixel = new Texture2D(device, 1, 1);
         _pixel.SetData(new[] { Color.White });
@@ -80,14 +89,27 @@ public sealed class Hud : IDisposable
         => _batch.Draw(_pixel, new Rectangle(0, 0, windowWidth, windowHeight), colour);
 
     /// <summary>Draw upper-cased text at native pixel coordinates, with an optional backdrop; <paramref name="maxChars"/> clips.</summary>
+    /// <summary>Draw text on the layout grid (6 native px per character, 8 tall) with an optional backdrop; <paramref name="maxChars"/> clips.</summary>
     public void Text(string text, int x, int y, Color ink, Color? backdrop = null, int maxChars = int.MaxValue)
     {
-        text = text.ToUpperInvariant();
         if (text.Length > maxChars) text = text[..Math.Max(0, maxChars)];
         if (backdrop is { } bg)
             Fill(x - 1, y - 1, PixelFont.Measure(text) + 1, PixelFont.GlyphHeight + 2, bg);
+
+        var font = PixelText ? null : FontFor(_scale);
         var cx = x;
-        foreach (var ch in text)
+        if (font is { } f)
+        {
+            foreach (var ch in text)
+            {
+                var src = f.Atlas.Glyph(ch);
+                _batch.Draw(f.Texture, new Rectangle(cx * _scale, y * _scale, f.Atlas.CellWidth, f.Atlas.CellHeight), ToXna(src), ink);
+                cx += PixelFont.Advance;
+            }
+            return;
+        }
+
+        foreach (var ch in text.ToUpperInvariant())
         {
             var g = PixelFont.Glyph(ch);
             for (var row = 0; row < PixelFont.GlyphHeight; row++)
@@ -98,8 +120,28 @@ public sealed class Hud : IDisposable
         }
     }
 
+    /// <summary>The system font rasterised for this scale: 6×8 native cells become (6·scale)×(8·scale) glyph boxes.</summary>
+    private (Texture2D Texture, TextAtlas Atlas)? FontFor(int scale)
+    {
+        if (_fonts.TryGetValue(scale, out var cached)) return cached;
+        var atlas = TextAtlas.TryBuild(FontFamily, PixelFont.Advance * scale, (PixelFont.GlyphHeight + 1) * scale);
+        (Texture2D, TextAtlas)? entry = null;
+        if (atlas is not null)
+        {
+            var texture = new Texture2D(_device, atlas.Width, atlas.Height);
+            texture.SetData(atlas.Pixels.Select(p => new Color(p.R, p.G, p.B, p.A)).ToArray());
+            entry = (texture, atlas);
+        }
+        _fonts[scale] = entry;
+        return entry;
+    }
+
+    private static Rectangle ToXna(SpriteRect r) => new(r.X, r.Y, r.W, r.H);
+
     public void Dispose()
     {
+        foreach (var f in _fonts.Values) f?.Texture.Dispose();
+        _fonts.Clear();
         _pixel.Dispose();
         _batch.Dispose();
     }
