@@ -8,14 +8,16 @@ public sealed class ProcessRunner : IProcessRunner
 {
     public async Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, TimeSpan timeout, CancellationToken ct)
     {
+        var (fileName, leading) = CommandResolver.Resolve(command);
         var psi = new ProcessStartInfo
         {
-            FileName = command,
+            FileName = fileName,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+        foreach (var a in leading) psi.ArgumentList.Add(a);
         foreach (var a in args) psi.ArgumentList.Add(a);
 
         using var process = new Process { StartInfo = psi };
@@ -44,15 +46,17 @@ public sealed class ProcessRunner : IProcessRunner
 
     public IProcessHandle Start(string command, IReadOnlyList<string> args, string? workingDirectory, IReadOnlyDictionary<string, string?> environment)
     {
+        var (fileName, leading) = CommandResolver.Resolve(command);
         var psi = new ProcessStartInfo
         {
-            FileName = command,
+            FileName = fileName,
             WorkingDirectory = workingDirectory ?? Environment.CurrentDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+        foreach (var a in leading) psi.ArgumentList.Add(a);
         foreach (var a in args) psi.ArgumentList.Add(a);
         psi.Environment.Clear();
         foreach (var (k, v) in environment) psi.Environment[k] = v;

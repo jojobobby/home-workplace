@@ -16,18 +16,33 @@ The game boots the context API and Foreman itself (same `app.json` as the deskto
 
 | Key | Action |
 |-----|--------|
-| WASD / arrows | pan |
+| WASD | walk your character |
+| E | talk to the employee (or whiteboard) you are next to |
+| Tab | the office menu: Employees, Tasks, Goals, Activity, Setup |
+| left click | talk to an employee, open the whiteboard, or open a toast |
+| arrows | pan the camera (it follows you again when you walk) |
 | mouse wheel | zoom (1× to 4×, pixel-perfect) |
 | left drag | pan |
-| left click | select an employee (name, status, task shown at the bottom) |
 | F3 | debug overlay (fps, clock, phase, agents, particles, services) |
 | M | mute |
 | F12 | save the current frame to `frames/` beside the exe |
 | R | retry a failed boot |
-| Esc | quit |
+| Esc | back out of a dialogue or menu; quit when nothing is open |
 
 Dev flags for unattended runs: `--clock HH:mm` fixes the office clock (see night lighting
-at noon), `--frames-every N` saves a frame every N seconds, `--exit-after N` quits.
+at noon), `--frames-every N` saves a frame every N seconds, `--exit-after N` quits, and
+`--smoke-script "walk ada-coder;talk;pick 0;type Hello;enter;esc;tab;wait 2"` drives the UI.
+
+## Managing the company
+
+Walk up to an employee (or click them) and a dialogue box opens at the bottom: they say what
+they are on, then you pick from the options — give a task, approve or answer a task that is
+waiting on you, wake or sleep them, open their task room's brief, reset their day. Managers
+add set a goal (with a dollar budget) and top up. The whiteboard on the top wall lists goals
+and offers top up / cancel. Bubbles over an employee mean they need you; toasts top-right
+say who, and clicking one opens their dialogue. Tab opens the office menu with lists of
+employees, tasks (approve / answer / reassign / retry / cancel), goals, activity (Foreman
+events), and setup (the CLI checks and a reload). Destructive actions ask first.
 
 ## Config
 

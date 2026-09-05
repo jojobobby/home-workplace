@@ -27,15 +27,17 @@ public static class ProcessRunner
         string exe, IReadOnlyList<string> args, string workingDir, string stdin,
         IReadOnlyDictionary<string, string?> extraEnv, TimeSpan timeout, CancellationToken ct)
     {
+        var (fileName, leading) = CommandResolver.Resolve(exe);
         var psi = new ProcessStartInfo
         {
-            FileName = exe,
+            FileName = fileName,
             WorkingDirectory = workingDir,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+        foreach (var a in leading) psi.ArgumentList.Add(a);
         foreach (var a in args) psi.ArgumentList.Add(a);
 
         psi.Environment.Clear();

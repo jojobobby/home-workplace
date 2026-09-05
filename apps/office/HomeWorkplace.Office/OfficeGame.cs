@@ -3,9 +3,11 @@ using HomeWorkplace.Live;
 using HomeWorkplace.Office.Audio;
 using HomeWorkplace.Office.Render;
 using HomeWorkplace.Office.Sim;
+using HomeWorkplace.Office.Ui;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System.Collections.Concurrent;
 using Vector2 = System.Numerics.Vector2;
 
 namespace HomeWorkplace.Office;
@@ -13,10 +15,12 @@ namespace HomeWorkplace.Office;
 /// <summary>
 /// The office, composed: boot the two services behind a boot screen, pump Foreman into the
 /// store, diff the store into simulation commands, step the simulation at 60 Hz, and draw it
-/// with the renderer while the jukebox plays its moments.
+/// with the renderer while the jukebox plays its moments. The management UI sits on top:
+/// walk (WASD) or click to an employee, E to talk, Tab for the office menu.
 ///
-/// Keys: WASD/arrows pan · wheel zoom · drag pan · click an employee · F3 debug · M mute ·
-/// F12 save a frame to frames/ · R retry a failed boot · Esc quit.
+/// Keys: WASD walk · E talk · Tab menu · arrows pan · wheel zoom · drag pan · click an
+/// employee, the whiteboard or a toast · F3 debug · M mute · F12 save a frame to frames/ ·
+/// R retry a failed boot · Esc back / quit.
 /// </summary>
 public sealed class OfficeGame : Game
 {
@@ -57,7 +61,15 @@ public sealed class OfficeGame : Game
     private float _accumulator;
     private float _fade;
     private bool _debug;
-    private string? _selectedId;
+    private readonly OfficeUi _office;
+    private readonly CliSetupChecker _setupChecker;
+    private readonly ConcurrentQueue<char> _typed = new();
+    private IReadOnlyList<CliStatus> _setupStatus = Array.Empty<CliStatus>();
+    private UiRenderer? _uiRenderer;
+    private Keys _repeatKey;
+    private float _repeatTimer;
+    private readonly Queue<string> _script = new();
+    private float _scriptTimer;
     private KeyboardState _prevKeys;
     private MouseState _prevMouse;
     private Vector2? _dragFrom;
@@ -71,12 +83,15 @@ public sealed class OfficeGame : Game
     public float? FrameEvery { get; set; }
     public float? ExitAfter { get; set; }
 
-    public OfficeGame(AppConfig config, ServiceSupervisor supervisor, AppStore store, EventPump pump)
+    public OfficeGame(AppConfig config, ServiceSupervisor supervisor, AppStore store, EventPump pump,
+                      IForemanApi foreman, IContextApi context, CliSetupChecker setup)
     {
         _config = config;
         _supervisor = supervisor;
         _store = store;
         _pump = pump;
+        _setupChecker = setup;
+        _office = new OfficeUi(store, foreman, context, () => _setupStatus, name => _jukebox?.Play(name, _you?.Tile ?? new TilePos(WorldLayout.Width / 2, WorldLayout.Height / 2)));
         _debug = config.Office.ShowDebug;
 
         var scale = config.Office.Scale > 0 ? config.Office.Scale : 3;
@@ -101,8 +116,16 @@ public sealed class OfficeGame : Game
 
     // ---- lifecycle -----------------------------------------------------------------------
 
+    /// <summary>Dev: a ';'-separated script driven at 0.8 s per step — walk ID · talk · pick N · type TEXT · enter · esc · tab · down · click ID · wait N.</summary>
+    public void RunScript(string script)
+    {
+        foreach (var step in script.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            _script.Enqueue(step);
+    }
+
     protected override void Initialize()
     {
+        Window.TextInput += (_, e) => _typed.Enqueue(e.Character);
         StartBoot();
         base.Initialize();
     }
@@ -149,9 +172,12 @@ public sealed class OfficeGame : Game
         var keys = Keyboard.GetState();
         var mouse = Mouse.GetState();
 
-        if (Pressed(keys, Keys.Escape)) { Exit(); return; }
-        if (Pressed(keys, Keys.F3)) _debug = !_debug;
-        if (Pressed(keys, Keys.M) && _jukebox is not null) _jukebox.Muted = !_jukebox.Muted;
+        if (Pressed(keys, Keys.Escape) && !_office.IsOpen) { Exit(); return; }
+        if (!_office.Typing)
+        {
+            if (Pressed(keys, Keys.F3)) _debug = !_debug;
+            if (Pressed(keys, Keys.M) && _jukebox is not null) _jukebox.Muted = !_jukebox.Muted;
+        }
 
         switch (_phase)
         {
@@ -176,6 +202,7 @@ public sealed class OfficeGame : Game
             _phase = Phase.Running;
             _fade = 0f;
             _ = _pump.RunAsync(_cts.Token);
+            _ = CheckSetupAsync();
         }
         else
         {
@@ -202,10 +229,92 @@ public sealed class OfficeGame : Game
         }
         _jukebox.Consume(_sim.Moments);
         _jukebox.Update(dt);
+        _office.Update(dt);
 
-        HandlePlayer(dt, keys);
-        HandleCamera(dt, keys, mouse);
-        HandleMouse(mouse);
+        if (_office.IsOpen)
+        {
+            HandleUiKeys(dt, keys);
+            HandleUiMouse(mouse);
+        }
+        else
+        {
+            _typed.Clear();
+            HandlePlayer(dt, keys);
+            HandleCamera(dt, keys, mouse);
+            HandleMouse(mouse);
+            if (Pressed(keys, Keys.E)) _office.Interact(_target);
+            if (Pressed(keys, Keys.Tab)) _office.OpenOverlay();
+        }
+        RunScriptStep(dt);
+    }
+
+    private async Task CheckSetupAsync()
+    {
+        try { _setupStatus = await _setupChecker.CheckAllAsync(_cts.Token); }
+        catch (Exception) { /* the Setup tab just stays empty */ }
+    }
+
+    /// <summary>Keys while a layer is open: typed text from the window, mapped keys with repeat for arrows and deletes.</summary>
+    private void HandleUiKeys(float dt, KeyboardState keys)
+    {
+        while (_typed.TryDequeue(out var ch))
+            if (!char.IsControl(ch)) _office.Key(UiKey.Char(ch));
+
+        var repeatable = false;
+        foreach (var key in keys.GetPressedKeys())
+        {
+            if (InputMap.UiKeyFor(key) is not { } ui) continue;
+            var repeats = ui.Kind is UiKeyKind.Up or UiKeyKind.Down or UiKeyKind.Left or UiKeyKind.Right or UiKeyKind.Backspace or UiKeyKind.Delete;
+            if (Pressed(keys, key))
+            {
+                _office.Key(ui);
+                if (repeats) { _repeatKey = key; _repeatTimer = 0.4f; }
+            }
+            else if (repeats && key == _repeatKey)
+            {
+                repeatable = true;
+                _repeatTimer -= dt;
+                if (_repeatTimer <= 0f) { _office.Key(ui); _repeatTimer = 0.05f; }
+            }
+        }
+        if (!repeatable) _repeatKey = Keys.None;
+    }
+
+    private void HandleUiMouse(MouseState mouse)
+    {
+        var down = mouse.LeftButton == ButtonState.Pressed;
+        var wasDown = _prevMouse.LeftButton == ButtonState.Pressed;
+        if (!down && wasDown) _office.Click(MouseNative(mouse));
+    }
+
+    private void RunScriptStep(float dt)
+    {
+        if (_script.Count == 0 || _sim is null || _you is null) return;
+        _scriptTimer -= dt;
+        if (_scriptTimer > 0f) return;
+        _scriptTimer = 0.8f;
+
+        var step = _script.Dequeue();
+        var parts = step.Split(' ', 2);
+        var arg = parts.Length > 1 ? parts[1] : "";
+        switch (parts[0])
+        {
+            case "walk":
+                if (_sim.Agents.TryGetValue(arg, out var agent) && agent.Visible)
+                    _you.Teleport(agent.Position + new Vector2(Agent.TileSize, 0));
+                break;
+            case "talk": _office.Interact(_you.Target(_sim)); break;
+            case "click": _office.OpenEmployee(arg); break;
+            case "pick":
+                if (_office.State.Top is Dialogue d) { d.CompleteReveal(); d.Select(int.Parse(arg)); _office.Key(UiKey.Accept); }
+                break;
+            case "type": foreach (var c in arg) _office.Key(UiKey.Char(c)); break;
+            case "enter": _office.Key(UiKey.Accept); break;
+            case "esc": _office.Key(UiKey.Back); break;
+            case "down": _office.Key(UiKey.Down); break;
+            case "tab": if (_office.IsOpen) _office.Key(UiKey.Tab); else _office.OpenOverlay(); break;
+            case "wait": _scriptTimer = float.Parse(arg, System.Globalization.CultureInfo.InvariantCulture); break;
+        }
     }
 
     /// <summary>WASD moves you; the camera follows unless the mouse took it recently.</summary>
@@ -245,10 +354,12 @@ public sealed class OfficeGame : Game
             var previous = _you;
             _you = new Player(world);
             if (previous is not null) _you.Teleport(previous.Position);
+            _uiRenderer = new UiRenderer(_hud!, _renderer);
         }
 
         foreach (var command in _feed!.Next(employees, _store.Tasks, _store.RecentEvents))
             _sim.Apply(command);
+        _office.OnStoreChanged();
     }
 
     private void HandleCamera(float dt, KeyboardState keys, MouseState mouse)
@@ -284,11 +395,24 @@ public sealed class OfficeGame : Game
         }
         else if (!down && wasDown)
         {
-            if (!_dragging && _sim is not null)
-                _selectedId = HitTest.AgentAt(_sim, _camera.ScreenToWorld(native))?.Id;
+            if (!_dragging && _sim is not null && !_office.Click(native))
+            {
+                var world = _camera.ScreenToWorld(native);
+                if (HitTest.AgentAt(_sim, world) is { } agent) _office.OpenEmployee(agent.Id);
+                else if (OnWhiteboard(_sim, world)) _office.OpenWhiteboard();
+            }
             _dragFrom = null;
             _dragging = false;
         }
+    }
+
+    /// <summary>The whiteboard prop and the floor tile row just under it.</summary>
+    private static bool OnWhiteboard(Simulation sim, Vector2 world)
+    {
+        var board = sim.World.Props.First(p => p.Kind == PropKind.Whiteboard);
+        var x0 = board.Pos.X * Agent.TileSize;
+        var y0 = board.Pos.Y * Agent.TileSize;
+        return world.X >= x0 && world.X < x0 + board.Width * Agent.TileSize && world.Y >= y0 && world.Y < y0 + (board.Height + 1) * Agent.TileSize;
     }
 
     private Vector2 MouseNative(MouseState mouse)
@@ -310,14 +434,16 @@ public sealed class OfficeGame : Game
         {
             _renderer.Draw(_sim, _camera, clock, _shifts, dt, _you, _target);
             _renderer.Present(w, h, scale);
-            if (Pressed(Keyboard.GetState(), Keys.F12)) SaveFrame();
-            if (FrameEvery is { } every && _runTime >= _nextAutoFrame) { SaveFrame(); _nextAutoFrame += every; }
+            _uiRenderer?.Draw(_office.State, _office.Toasts, scale, _runTime);
 
             _hud!.Begin(scale);
+            if (!_office.IsOpen) _hud.Text("Tab: office menu", 4, SceneRenderer.NativeHeight - 12, new Color(0xb9, 0xb7, 0xc9), new Color(0x0d, 0x0f, 0x22, 160));
             if (_fade < 1f) _hud.FillWindow(w, h, Color.Black * (1f - _fade));
             if (_debug) DrawDebug(clock);
-            DrawSelection();
             _hud.End();
+
+            if (Pressed(Keyboard.GetState(), Keys.F12) && !_office.Typing) SaveFrame();
+            if (FrameEvery is { } every && _runTime >= _nextAutoFrame) { SaveFrame(); _nextAutoFrame += every; }
         }
         else
         {
@@ -371,20 +497,19 @@ public sealed class OfficeGame : Game
         }
     }
 
-    private void DrawSelection()
-    {
-        if (_selectedId is null || _sim is null || !_sim.Agents.TryGetValue(_selectedId, out var agent)) return;
-        var hud = _hud!;
-        var text = $"{agent.Name}  {agent.Status}" + (agent.TaskTitle is { } t ? $"  -  {t}" : "") + (agent.WaitingOn is { } wo ? $"  (waiting on {wo})" : "");
-        hud.Text(text, 4, SceneRenderer.NativeHeight - hud.LineHeight - 2, new Color(0xf4, 0xf1, 0xe8), new Color(0x0d, 0x0f, 0x22, 220));
-    }
-
+    /// <summary>Save what is on screen (scene and UI) to frames/ beside the exe.</summary>
     private void SaveFrame()
     {
         var dir = Path.Combine(AppContext.BaseDirectory, "frames");
         Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, $"office-{DateTime.Now:yyyyMMdd-HHmmss}.png");
+        var w = GraphicsDevice.PresentationParameters.BackBufferWidth;
+        var h = GraphicsDevice.PresentationParameters.BackBufferHeight;
+        var data = new Color[w * h];
+        GraphicsDevice.GetBackBufferData(data);
+        using var texture = new Texture2D(GraphicsDevice, w, h);
+        texture.SetData(data);
         using var stream = File.Create(path);
-        _renderer!.SavePng(stream);
+        texture.SaveAsPng(stream, w, h);
     }
 }

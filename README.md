@@ -74,15 +74,17 @@ Built:
    stream: A* walking, typing, coffee runs, hand-off chats, dynamic lights and stencil
    shadows on a day/night schedule, particles, screen shake, synthesized sound effects.
    See `apps/office/README.md`.
+6. **In-game management UI (4b)** — walk or click to an employee, RPG dialogue box
+   (give tasks, approve, answer, wake/sleep, goals and budgets), Tab overlay with lists,
+   whiteboard goals, toasts for approvals. The Blazor shell is no longer the primary app.
 
 Next:
 
-5b. **In-game management UI** — assign work, wake/sleep, budgets, inside the office.
-5c. **Art and sound pipeline** — real sprite sheets (via the vfx-artist employee) and music
+7. **Art and sound pipeline (4c)** — real sprite sheets (via the vfx-artist employee) and music
    replacing the procedural placeholders.
-6. **Notifications** — email, push, AI-voice calls, approvals.
-7. **VM/sandbox layer** — per-employee scoped control of a machine.
-8. **Phone app** — the same UI library, built for Android/iOS.
+8. **Notifications** — email, push, AI-voice calls, approvals.
+9. **VM/sandbox layer** — per-employee scoped control of a machine.
+10. **Phone app** — the same UI library, built for Android/iOS.
 
 ## Note on subscription use
 
